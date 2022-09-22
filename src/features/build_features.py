@@ -13,32 +13,48 @@ import torch
 from sklearn.model_selection import train_test_split
 import shutil
 import cv2
+from torchvision.models import resnet50
+from torchvision import transforms
+import torch
+from torch.autograd import Variable as V
+import torchvision.models as models
+from torch.nn import functional as F
 
 class FilterImage:
     """class for filtering out unusable SVI
         - Mapillary
             - Too much occlusion 
-            - Too close to each other
+            - Too close to each other *optional for now
         - GSV
             - Highway
     """
-    def __init__(self, gsv_folder, mly_folder):
+    def __init__(self, pretrained_model_folder, gsv_folder, mly_folder):
         self.gsv_folder = gsv_folder
         self.mly_folder = mly_folder
-        
-    def load_model(self):
+        self.pretrained_model_folder = pretrained_model_folder
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # load models
         if torch.cuda.is_available():
-            model = MobileV3Small.from_pretrained().cuda()
+            segmentation_model = MobileV3Small.from_pretrained().cuda()
         else:
-            model = MobileV3Small.from_pretrained()
+            segmentation_model = MobileV3Small.from_pretrained()
+        segmentation_model.eval()
+        self.segmentation_model = segmentation_model
+        
+        # Model class must be defined somewhere
+        arch = 'resnet50'
+        model = models.__dict__[arch](num_classes=365)
+        checkpoint = torch.load(os.path.join(self.pretrained_model_folder, "resnet50_places365.pth.tar"), map_location=torch.device(self.device))
+        state_dict = {str.replace(k,'module.',''): v for k,v in checkpoint['state_dict'].items()}
+        model.load_state_dict(state_dict)
         model.eval()
-        self.model = model
+        self.classification_model = model
         
     def segment_svi(self):
         filtered_list = []
         for image_file in tqdm.tqdm(glob.glob(os.path.join(self.mly_folder,"image/*.jpg"))):
             image = Image.open(image_file)
-            labels = self.model.predict_one(image)
+            labels = self.segmentation_model.predict_one(image)
             labels_size = labels.size
             _, labels_count = np.unique(labels, return_counts=True)
             # refer to the labels: https://github.com/mcordts/cityscapesScripts/blob/master/cityscapesscripts/helpers/labels.py
@@ -47,37 +63,46 @@ class FilterImage:
                 mly_id = os.path.split(image_file)[1].replace(".jpg","")
                 filtered_list.append(mly_id)
         filtered_df = pd.DataFrame(filtered_list, columns =["id"])
-        filtered_df.to_csv(os.path.join(self.mly_folder,"filtered_images.csv"))
+        filtered_df.to_csv(os.path.join(self.mly_folder,"metadata/filtered_images.csv"))
 
-        # # Step 1: Initialize model with the best available weights
-        # weights = FCN_ResNet50_Weights.DEFAULT
-        # model = fcn_resnet50(weights=weights)
-        # model.eval()
+    def classify_svi(self):
+        # load the image transformer
+        centre_crop = transforms.Compose([
+                transforms.Resize((256,256)),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ])
+
+        # load the class label
+        file_name = os.path.join(self.pretrained_model_folder, 'categories_places365.txt')
+        classes = list()
+        with open(file_name) as class_file:
+            for line in class_file:
+                classes.append(line.strip().split(' ')[0][3:])
+        classes = tuple(classes)
         
-        # # Step 2: Initialize the inference transforms
-        # preprocess = weights.transforms()
-        
-        # filtered_list = []
-        # for image_file in tqdm.tqdm(glob.glob(os.path.join(self.mly_folder,"image/*.jpg"))):
-        #     img = read_image(image_file)
-        #     # Step 3: Apply inference preprocessing transforms
-        #     batch = preprocess(img).unsqueeze(0)   
-        #     # Step 4: Use the model and visualize the prediction
-        #     prediction = model(batch)["out"]
-        #     normalized_masks = prediction.softmax(dim=1)
-        #     # class_to_idx = {cls: idx for (idx, cls) in enumerate(weights.meta["categories"])}
-        #     # mask = normalized_masks[0, class_to_idx["dog"]]
-        #     to_pil_image(normalized_masks).show()
-        #     break
-        #     # labels_size = labels.size
-        #     # _, labels_count = np.unique(labels, return_counts=True)
-        #     # refer to the labels: https://github.com/mcordts/cityscapesScripts/blob/master/cityscapesscripts/helpers/labels.py
-        # #     occlusion_total = np.sum(labels_count[10:])
-        # #     if occlusion_total/labels_size > 0.2:
-        # #         mly_id = os.path.split(image_file)[1].replace(".jpg","")
-        # #         filtered_list.append(mly_id)
-        # # filtered_df = pd.DataFrame(filtered_list, columns =["id"])
-        # # filtered_df.to_csv(os.path.join(self.mly_folder,"filtered_images.csv"))
+        filtered_list = []
+        for image_file in tqdm.tqdm(glob.glob(os.path.join(self.gsv_folder,"image/panorama/*.jpg"))):
+            img = Image.open(image_file)
+            input_img = V(centre_crop(img).unsqueeze(0))
+
+            # forward pass
+            logit = self.classification_model.forward(input_img)
+            h_x = F.softmax(logit, 1).data.squeeze()
+            probs, idx = h_x.sort(0, True)
+            print(image_file)
+            # output the prediction
+            for i in range(0, 5):
+                print('{:.3f} -> {}'.format(probs[i], classes[idx[i]]))
+            
+            # refer to the labels: https://github.com/zhoubolei/places_devkit/blob/master/categories_places365.txt
+            if (classes[idx[0]] == "highway") & (float(probs[0]) > 0.5):
+                mly_id = os.path.split(image_file)[1].replace(".jpg","")
+                filtered_list.append(mly_id)
+        filtered_df = pd.DataFrame(filtered_list, columns =["id"])
+        filtered_df.to_csv(os.path.join(self.gsv_folder,"metadata/filtered_images.csv"))
+        pass
         
     def get_latest_gsv_only(self, threshold=10):
         # load gsv_metadata with distance
@@ -200,14 +225,15 @@ class FormatFolder():
 if __name__ == '__main__':
     ssl._create_default_https_context = ssl._create_unverified_context
     root_dir = "/Volumes/exfat/road_shoulder_gan"
+    model_folder = os.path.join(root_dir, "data/external")
     gsv_folder = os.path.join(root_dir, "data/raw/gsv")
     mly_folder = os.path.join(root_dir, "data/raw/mapillary")
     new_folder = os.path.join(root_dir, "data/processed")
-    # filter_image = FilterImage(gsv_folder, mly_folder)
+    filter_image = FilterImage(model_folder, gsv_folder, mly_folder)
     # filter_image.get_latest_gsv_only()
-    # filter_image.load_model()
     # filter_image.segment_svi()
-    format_folder = FormatFolder(gsv_folder, mly_folder, new_folder)
-    format_folder.create_new_folder()
+    filter_image.classify_svi()
+    # format_folder = FormatFolder(gsv_folder, mly_folder, new_folder)
+    # format_folder.create_new_folder()
     
     
