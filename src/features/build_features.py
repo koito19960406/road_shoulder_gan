@@ -53,15 +53,22 @@ class FilterImage:
     def segment_svi(self):
         filtered_list = []
         for image_file in tqdm.tqdm(glob.glob(os.path.join(self.mly_folder,"image/*.jpg"))):
-            image = Image.open(image_file)
-            labels = self.segmentation_model.predict_one(image)
-            labels_size = labels.size
-            _, labels_count = np.unique(labels, return_counts=True)
-            # refer to the labels: https://github.com/mcordts/cityscapesScripts/blob/master/cityscapesscripts/helpers/labels.py
-            occlusion_total = np.sum(labels_count[10:])
-            if occlusion_total/labels_size > 0.2:
-                mly_id = os.path.split(image_file)[1].replace(".jpg","")
-                filtered_list.append(mly_id)
+            try:
+                image = Image.open(image_file)
+                centre_crop = transforms.Compose([
+                        transforms.Resize((512,512))
+                ])
+                image = centre_crop(image)
+                labels = self.segmentation_model.predict_one(image)
+                labels_size = labels.size
+                unique_labels, labels_count = np.unique(labels, return_counts=True)
+                # refer to the labels: https://github.com/mcordts/cityscapesScripts/blob/master/cityscapesscripts/helpers/labels.py
+                occlusion_total = np.sum(labels_count[unique_labels>10])
+                if occlusion_total/labels_size > 0.2:
+                    mly_id = os.path.split(image_file)[1].replace(".jpg","")
+                    filtered_list.append(mly_id)
+            except:
+                print("Error with " + image_file)
         filtered_df = pd.DataFrame(filtered_list, columns =["id"])
         filtered_df.to_csv(os.path.join(self.mly_folder,"metadata/filtered_images.csv"))
 
@@ -231,9 +238,10 @@ if __name__ == '__main__':
     new_folder = os.path.join(root_dir, "data/processed")
     filter_image = FilterImage(model_folder, gsv_folder, mly_folder)
     # filter_image.get_latest_gsv_only()
-    # filter_image.segment_svi()
+    filter_image.segment_svi()
     filter_image.classify_svi()
     # format_folder = FormatFolder(gsv_folder, mly_folder, new_folder)
     # format_folder.create_new_folder()
     
-    
+os.path.exists('/Volumes/exfat/road_shoulder_gan/data/raw/mapillary/image/371613148493092.jpg')
+Image.open('/Volumes/ExFAT/bike_svi/data/raw/mapillary_vistas_resized/validation/images/_2yFuPMD1eo4D1sHkx-c4Q.jpg')
