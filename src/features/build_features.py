@@ -64,7 +64,7 @@ class FilterImage:
                 unique_labels, labels_count = np.unique(labels, return_counts=True)
                 # refer to the labels: https://github.com/mcordts/cityscapesScripts/blob/master/cityscapesscripts/helpers/labels.py
                 occlusion_total = np.sum(labels_count[unique_labels>10])
-                if occlusion_total/labels_size > 0.2:
+                if occlusion_total/labels_size > 0.1:
                     mly_id = os.path.split(image_file)[1].replace(".jpg","")
                     filtered_list.append(mly_id)
             except:
@@ -133,7 +133,7 @@ class FilterImage:
                 for _, row in gsv_metadata_temp.iterrows():
                     # concatenate to gsv_metadata_filtered if the distance is within the threshold
                     # continute other wise
-                    if row["distance"] <= 10:
+                    if row["distance"] <= threshold:
                         row_df = row.to_frame()
                         gsv_metadata_filtered = pd.concat([gsv_metadata_filtered, row_df.T], ignore_index = True)
                         break
@@ -141,6 +141,32 @@ class FilterImage:
                 # save gsv_metadata_filtered as csv
                 gsv_metadata_filtered.to_csv(os.path.join(self.gsv_folder,"metadata/gsv_metadata_filtered.csv"), index = False)
         
+    def filter_with_cv_result(self):
+        """function to filter gsv and mly images further based on the results of segmentation and classification
+        make sure to run this after get_latest_gsv_only()
+        """
+        # run get_latest_gsv_only() if gsv_metadata_filtered.csv doesn't exist yet
+        if not os.path.exists(os.path.join(self.gsv_folder,"metadata/gsv_metadata_filtered.csv")):
+            self.get_latest_gsv_only()
+        
+        # import gsv metadata
+        gsv_metadata = pd.read_csv(os.path.join(self.gsv_folder,"metadata/gsv_metadata_filtered.csv"))
+        
+        # import the results of cv filtering
+        segment_filtered = set(pd.read_csv(os.path.join(self.mly_folder,"metadata/filtered_images.csv"))["id"].unique())
+        classification_filtered = set(pd.read_csv(os.path.join(self.gsv_folder,"metadata/filtered_images.csv"))["id"].unique())
+        
+        # remove gsv and mly ids that match with segment_filtered and classification_filtered
+        def extract_good_img(df):
+            if (not df["mly_id"] in segment_filtered) and (not df["panoid"] in classification_filtered):
+                return df
+        # apply extract_good_img to get only good img
+        tqdm.tqdm.pandas()
+        gsv_metadata_filtered = gsv_metadata.progress_apply(extract_good_img, axis=1).dropna()
+        
+        # save the result
+        gsv_metadata_filtered.to_csv(os.path.join(self.gsv_folder,"metadata/gsv_metadata_cv_filtered.csv"))
+            
 class FormatFolder():
     """class for structuring folders to be ready for GAN modelling
     """
@@ -150,7 +176,51 @@ class FormatFolder():
         self.new_folder = new_folder
         os.makedirs(self.new_folder, exist_ok = True)
         
-    def create_new_folder(self, random_state = 42, model = "cyclegan"):
+    def stitch_gsv(self, gsv_id):
+        """function to stitch image based on the goven gsv id
+
+        Args:
+            gsv_id (str): panoid
+
+        Returns:
+            numpy array: stitched img
+        """
+        img_list = glob.glob(os.path.join(self.gsv_folder, f"image/perspective/{gsv_id}*.png"))
+        img_agg = None
+        for i in range(0,360,90):
+            # get img that match with the direction in each loop
+            img_file_match = list(filter(lambda x: f"Direction_{str(i)}" in x, img_list))[0]
+            img_temp = cv2.imread(img_file_match)
+            if img_agg is None:
+                img_agg = img_temp
+            else:
+                img_agg = cv2.hconcat([img_agg, img_temp])
+        return img_agg
+        
+    # define a function to check the file validity and save to the new folders
+    def check_and_save(self, df, train_test, model):
+        # get IDs
+            panoid = df["panoid"]
+            mly_id = df["mly_id"]
+            # run the following if the image doesn't still exist
+            if not (os.path.exists(os.path.join(self.new_folder, model, train_test+"A", str(int(mly_id))+".jpg"))&\
+                os.path.exists(os.path.join(self.new_folder, model, train_test+"B", str(int(mly_id))+".jpg"))):
+                # load mly image
+                mly_image = cv2.imread(os.path.join(self.mly_folder,"image", str(int(mly_id)) + ".jpg"))
+                if mly_image is not None:
+                    # stitch gsv perspective images
+                    gsv_image = self.stitch_gsv(panoid)
+                    # save images if they are not empty
+                    if gsv_image is not None:
+                        # resize images to their average sizes
+                        width = int((mly_image.shape[1]+gsv_image.shape[1])/2)
+                        height = int((mly_image.shape[0]+gsv_image.shape[0])/2)
+                        mly_resized = cv2.resize(mly_image, (width, height))
+                        gsv_resized = cv2.resize(gsv_image, (width, height))
+                        cv2.imwrite(os.path.join(self.new_folder, model, train_test+"B", str(int(mly_id))+".jpg"), mly_resized) 
+                        cv2.imwrite(os.path.join(self.new_folder, model, train_test+"A", str(int(mly_id))+".jpg"), gsv_resized)
+                            
+    def create_new_folder(self, random_state = 42, model = "cyclegan", test_size = 0.1):
         """create following directories: 
             - trainA: mly
             - trainB: gsv
@@ -163,85 +233,30 @@ class FormatFolder():
         os.makedirs(os.path.join(self.new_folder,model,"testA"), exist_ok = True)
         os.makedirs(os.path.join(self.new_folder,model,"testB"), exist_ok = True)
         # get a list of files for mly and gsv
-        gsv_metadata = pd.read_csv(os.path.join(self.gsv_folder,"metadata/gsv_metadata_filtered.csv"))
-        
-        # # filter gsv_file_list
-        # panoid = gsv_metadata["panoid"].tolist()
-        # for gsv_file in gsv_file_list:
-        #     panoid_extracted = os.path.split(gsv_file)[1]
-        #     panoid_extracted = panoid_extracted.replace(".jpg","")
-        #     # remove if not in the panoid list
-        #     if not panoid_extracted in panoid:
-        #         gsv_file_list.remove(gsv_file)
-            
-        # # get size of mly to resize gsv panorama later
-        # mly_img_size = cv2.imread(mly_file_list[0]).shape
+        gsv_metadata = pd.read_csv(os.path.join(self.gsv_folder,"metadata/gsv_metadata_cv_filtered.csv"))
 
-        # test and train split 50:50
-        train, test = train_test_split(gsv_metadata, test_size=0.5, random_state=random_state)
+        # test and train split
+        train, test = train_test_split(gsv_metadata, test_size=test_size, random_state=random_state)
         print(train, test)
         
         # loop through train to copy gsv and mly images
         for df, train_test in zip([train,test], ["train","test"]):
-            for _, row in tqdm.tqdm(df.iterrows(), total=len(df.index)):
-                # get IDs
-                panoid = row["panoid"]
-                mly_id = row["mly_id"]
-                
-                if not (os.path.exists(os.path.join(self.new_folder, model, train_test+"A", str(mly_id)+".jpg"))&\
-                    os.path.exists(os.path.join(self.new_folder, model, train_test+"B", str(mly_id)+".jpg"))):
-                    # load mly image
-                    mly_image = cv2.imread(os.path.join(self.mly_folder,"image", str(mly_id) + ".jpg"))
-                    if mly_image is not None:
-                        # resize GSV image
-                        gsv_image = cv2.imread(os.path.join(self.gsv_folder,"image/panorama",panoid+".jpg"))
-                        # save images if they are not empty
-                        if gsv_image is not None:
-                            gsv_resized = cv2.resize(gsv_image, (mly_image.shape[1], mly_image.shape[0]))
-                            cv2.imwrite(os.path.join(self.new_folder, model, train_test+"B", str(mly_id)+".jpg"), mly_image) 
-                            cv2.imwrite(os.path.join(self.new_folder, model, train_test+"A", str(mly_id)+".jpg"), gsv_resized)
-                    
-                    
-            # trainB, testB = train_test_split(gsv_file_list, test_size=0.5, random_state=random_state)
-
-            # # save the file lists to respective folders
-            # for i, dataset in enumerate([trainA, testA, trainB, testB]):
-            #     if i % 2 == 0:
-            #         train_test = "train"
-            #     else:
-            #         train_test = "test"
-            #     if i < 2:
-            #         A_B = "A"
-            #     else:
-            #         A_B = "B"
-            #     folder_path = os.path.join(self.new_folder,model,train_test + A_B)
-            #     os.makedirs(folder_path,exist_ok = True)
-            #     for file_path in tqdm.tqdm(dataset):
-            #         file_name = os.path.split(file_path)[1]
-            #         if A_B == "B" and not os.path.exists(os.path.join(folder_path,file_name)):
-            #             panoid = file_name.replace(".jpg","")
-            #             mly_id = gsv_metadata[gsv_metadata["panoid"]==panoid]["mly"]
-            #             image = cv2.imread(file_path)
-            #             resized = cv2.resize(image, (mly_img_size[1], mly_img_size[0]))
-            #             cv2.imwrite(os.path.join(folder_path,file_name), resized)
-            #         if A_B == "A" and not os.path.exists(os.path.join(folder_path,file_name)):
-            #             shutil.copy2(file_path, os.path.join(folder_path, file_name))
-            
+            # apply check_and_save to df
+            tqdm.tqdm.pandas()
+            df.progress_apply(self.check_and_save, args=(train_test, model), axis=1)
             
         
 if __name__ == '__main__':
     ssl._create_default_https_context = ssl._create_unverified_context
-    root_dir = "/Volumes/exfat/road_shoulder_gan"
+    root_dir = "/Volumes/ExFAT/road_shoulder_gan"
     model_folder = os.path.join(root_dir, "data/external")
     gsv_folder = os.path.join(root_dir, "data/raw/gsv")
     mly_folder = os.path.join(root_dir, "data/raw/mapillary")
     new_folder = os.path.join(root_dir, "data/processed")
-    filter_image = FilterImage(model_folder, gsv_folder, mly_folder)
+    # filter_image = FilterImage(model_folder, gsv_folder, mly_folder)
     # filter_image.get_latest_gsv_only()
-    filter_image.segment_svi()
-    filter_image.classify_svi()
-    # format_folder = FormatFolder(gsv_folder, mly_folder, new_folder)
-    # format_folder.create_new_folder()
-    
-os.path.exists('/Volumes/exfat/road_shoulder_gan/data/raw/mapillary/image/371613148493092.jpg')
-Image.open('/Volumes/ExFAT/bike_svi/data/raw/mapillary_vistas_resized/validation/images/_2yFuPMD1eo4D1sHkx-c4Q.jpg')
+    # filter_image.segment_svi()
+    # filter_image.classify_svi()
+    # filter_image.filter_with_cv_result()
+    format_folder = FormatFolder(gsv_folder, mly_folder, new_folder)
+    format_folder.create_new_folder(model = "cyclegan_filtered")
