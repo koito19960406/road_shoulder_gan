@@ -1,3 +1,4 @@
+import subprocess
 import glob
 import tqdm
 import os
@@ -203,8 +204,13 @@ class FormatFolder():
             panoid = df["panoid"]
             mly_id = df["mly_id"]
             # run the following if the image doesn't still exist
-            if not (os.path.exists(os.path.join(self.new_folder, model, train_test+"A", str(int(mly_id))+".jpg"))&\
-                os.path.exists(os.path.join(self.new_folder, model, train_test+"B", str(int(mly_id))+".jpg"))):
+            if "cyclegan" in model:
+                condition = not (os.path.exists(os.path.join(self.new_folder, model, train_test+"A", str(int(mly_id))+".jpg"))&\
+                    os.path.exists(os.path.join(self.new_folder, model, train_test+"B", str(int(mly_id))+".jpg")))
+            if "pix2pix" in model:
+                condition = not (os.path.exists(os.path.join(self.new_folder, model+"_init", "A", train_test, str(int(mly_id))+".jpg"))&\
+                    os.path.exists(os.path.join(self.new_folder, model+"_init", "B", train_test, str(int(mly_id))+".jpg")))
+            if condition:
                 # load mly image
                 mly_image = cv2.imread(os.path.join(self.mly_folder,"image", str(int(mly_id)) + ".jpg"))
                 if mly_image is not None:
@@ -217,8 +223,12 @@ class FormatFolder():
                         height = int((mly_image.shape[0]+gsv_image.shape[0])/2)
                         mly_resized = cv2.resize(mly_image, (width, height))
                         gsv_resized = cv2.resize(gsv_image, (width, height))
-                        cv2.imwrite(os.path.join(self.new_folder, model, train_test+"B", str(int(mly_id))+".jpg"), mly_resized) 
-                        cv2.imwrite(os.path.join(self.new_folder, model, train_test+"A", str(int(mly_id))+".jpg"), gsv_resized)
+                        if "cyclegan" in model:
+                            cv2.imwrite(os.path.join(self.new_folder, model, train_test+"B", str(int(mly_id))+".jpg"), mly_resized) 
+                            cv2.imwrite(os.path.join(self.new_folder, model, train_test+"A", str(int(mly_id))+".jpg"), gsv_resized)
+                        if "pix2pix" in model:
+                            cv2.imwrite(os.path.join(self.new_folder, model+"_init", "B", train_test, str(int(mly_id))+".jpg"), mly_resized) 
+                            cv2.imwrite(os.path.join(self.new_folder, model+"_init", "A", train_test, str(int(mly_id))+".jpg"), gsv_resized)
                             
     def create_new_folder(self, random_state = 42, model = "cyclegan", test_size = 0.1):
         """create following directories: 
@@ -228,10 +238,17 @@ class FormatFolder():
             - testB: gsv
         """
         # create folders
-        os.makedirs(os.path.join(self.new_folder,model,"trainA"), exist_ok = True)
-        os.makedirs(os.path.join(self.new_folder,model,"trainB"), exist_ok = True)
-        os.makedirs(os.path.join(self.new_folder,model,"testA"), exist_ok = True)
-        os.makedirs(os.path.join(self.new_folder,model,"testB"), exist_ok = True)
+        if "cyclegan" in model:
+            os.makedirs(os.path.join(self.new_folder,model,"trainA"), exist_ok = True)
+            os.makedirs(os.path.join(self.new_folder,model,"trainB"), exist_ok = True)
+            os.makedirs(os.path.join(self.new_folder,model,"testA"), exist_ok = True)
+            os.makedirs(os.path.join(self.new_folder,model,"testB"), exist_ok = True)
+        if "pix2pix" in model:
+            os.makedirs(os.path.join(self.new_folder,model), exist_ok = True)
+            os.makedirs(os.path.join(self.new_folder,model+"_init","A","train"), exist_ok = True)
+            os.makedirs(os.path.join(self.new_folder,model+"_init","B","train"), exist_ok = True)
+            os.makedirs(os.path.join(self.new_folder,model+"_init","A","test"), exist_ok = True)
+            os.makedirs(os.path.join(self.new_folder,model+"_init","B","test"), exist_ok = True)
         # get a list of files for mly and gsv
         gsv_metadata = pd.read_csv(os.path.join(self.gsv_folder,"metadata/gsv_metadata_cv_filtered.csv"))
 
@@ -245,7 +262,12 @@ class FormatFolder():
             tqdm.tqdm.pandas()
             df.progress_apply(self.check_and_save, args=(train_test, model), axis=1)
             
-        
+    def prepare_pix2pix(self,model):
+        fold_A = os.path.join(self.new_folder,model+"_init","A")
+        fold_B = os.path.join(self.new_folder,model+"_init","B")
+        subprocess.Popen([f"python src/models/pytorch-CycleGAN-and-pix2pix/datasets/combine_A_and_B.py --fold_A {fold_A} --fold_B {fold_B} --fold_AB {os.path.join(self.new_folder,model)} --no_multiprocessing"],
+                        shell=True)
+        pass
 if __name__ == '__main__':
     ssl._create_default_https_context = ssl._create_unverified_context
     root_dir = "/Volumes/ExFAT/road_shoulder_gan"
@@ -259,4 +281,6 @@ if __name__ == '__main__':
     # filter_image.classify_svi()
     # filter_image.filter_with_cv_result()
     format_folder = FormatFolder(gsv_folder, mly_folder, new_folder)
-    format_folder.create_new_folder(model = "cyclegan_filtered")
+    # format_folder.create_new_folder(model = "cyclegan_filtered")
+    format_folder.create_new_folder(model = "pix2pix_filtered")
+    format_folder.prepare_pix2pix("pix2pix_filtered")
