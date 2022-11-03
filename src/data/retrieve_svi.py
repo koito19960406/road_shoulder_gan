@@ -5,8 +5,8 @@ from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool
 import streetview
 import pandas as pd
-from get_img import my_task
-from perspective.tool import Equirectangular
+from src.data.get_img import my_task
+from src.data.perspective.tool import Equirectangular
 import threading
 import cv2
 import numpy as np
@@ -154,17 +154,20 @@ class Downloader:
             response_df.to_file(os.path.join(self.mly_metadata_output_folder, "response.geojson"), driver='GeoJSON')
         pass
 
-    def get_mly_image_id(self, bbox, ORGANIZATION_ID, update = False):
+    def get_mly_image_id(self, boundary, ORGANIZATION_ID, update = False):
         """function to retrieve image id from bbox and organization id and store
         as response and save as geojson
         Args:
-            bbox (dict): bbox
+            boundary (dict): boundary to get image id from 
             ORGANIZATION_ID (str): organization id
         """
         if not update and os.path.exists(os.path.join(self.mly_metadata_output_folder, "response.geojson")):
             print("The output file already exists, please set update to True if you want to update it")
         else:
-            response = mly.interface.images_in_bbox(bbox, organization_id = ORGANIZATION_ID)
+            if boundary.get("west") != None:
+                response = mly.interface.images_in_bbox(boundary, organization_id = ORGANIZATION_ID)
+            else:
+                response = mly.interface.images_in_geojson(boundary, organization_id = ORGANIZATION_ID)
             response_df = gpd.read_file(response)
             # save response in the output_folder as geojson
             response_df.to_file(os.path.join(self.mly_metadata_output_folder, "response.geojson"), driver='GeoJSON')

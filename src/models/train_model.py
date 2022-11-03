@@ -4,11 +4,12 @@ import os
 class Trainer:
     """class to run shell script to train GAN models
     """
-    def __init__(self, name, model = "cyclegan"):
+    def __init__(self, root_dir, name, model = "cyclegan"):
+        self.root_dir = root_dir
         self.train_script = "src/models/pytorch-CycleGAN-and-pix2pix/train.py"
         self.name = name
-        self.data_root = os.path.join("/Volumes/ExFAT/road_shoulder_gan/data/processed",self.name)
-        self.check_point = "/Volumes/exfat/road_shoulder_gan/models/"
+        self.data_root = os.path.join(self.root_dir, "data/processed",self.name)
+        self.check_point = os.path.join(self.root_dir,"models")
         self.model = model
         if model=="cyclegan":
             self.dataset_mode = "unaligned"
@@ -21,6 +22,7 @@ class Trainer:
         pass
 
 if __name__ == '__main__':
+    root_dir = "/Volumes/ExFAT/road_shoulder_gan"
     name_list = ["cyclegan_filtered", "pix2pix_filtered"]
     for name in name_list:
         if "cyclegan" in name:

@@ -4,11 +4,12 @@ import os
 class Predictor:
     """class to run shell script to train GAN models
     """
-    def __init__(self, name, model = "cyclegan"):
+    def __init__(self, root_dir, name, model = "cyclegan"):
+        self.root_dir = root_dir
         self.train_script = "src/models/pytorch-CycleGAN-and-pix2pix/train.py"
         self.name = name
-        self.data_root = os.path.join("/Volumes/ExFAT/road_shoulder_gan/data/processed",self.name)
-        self.check_point = "/Volumes/exfat/road_shoulder_gan/models/"
+        self.data_root = os.path.join(self.root_dir, "data/processed",self.name)
+        self.check_point = os.path.join(self.root_dir,"models")
         self.model = model
         self.results_dir = os.path.join(self.check_point,self.name)
         if model=="cyclegan":
@@ -22,11 +23,12 @@ class Predictor:
         pass
 
 if __name__ == '__main__':
+    root_dir = "/Volumes/ExFAT/road_shoulder_gan"
     name_list = ["cyclegan_filtered", "pix2pix_filtered"]
     for name in name_list:
         if "cyclegan" in name:
             model = "cyclegan"
         if "pix2pix" in name:
             model = "pix2pix"
-        predictor = Predictor(name, model)
+        predictor = Predictor(root_dir, name, model)
         predictor.predict()

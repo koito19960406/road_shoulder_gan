@@ -167,11 +167,17 @@ class FilterImage:
         
         # save the result
         gsv_metadata_filtered.to_csv(os.path.join(self.gsv_folder,"metadata/gsv_metadata_cv_filtered.csv"))
-            
+    
+    def run_all(self):
+        self.segment_svi()
+        self.classify_svi()
+        self.get_latest_gsv_only()
+        self.filter_with_cv_result()
+        
 class FormatFolder():
     """class for structuring folders to be ready for GAN modelling
     """
-    def __init__(self ,gsv_folder, mly_folder, new_folder):
+    def __init__(self, gsv_folder, mly_folder, new_folder):
         self.gsv_folder = gsv_folder
         self.mly_folder = mly_folder
         self.new_folder = new_folder
