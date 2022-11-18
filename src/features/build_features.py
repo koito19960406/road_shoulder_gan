@@ -51,66 +51,71 @@ class FilterImage:
         model.eval()
         self.classification_model = model
         
-    def segment_svi(self):
-        filtered_list = []
-        for image_file in tqdm.tqdm(glob.glob(os.path.join(self.mly_folder,"image/*.jpg"))):
-            try:
-                image = Image.open(image_file)
-                centre_crop = transforms.Compose([
-                        transforms.Resize((512,512))
-                ])
-                image = centre_crop(image)
-                labels = self.segmentation_model.predict_one(image)
-                labels_size = labels.size
-                unique_labels, labels_count = np.unique(labels, return_counts=True)
-                # refer to the labels: https://github.com/mcordts/cityscapesScripts/blob/master/cityscapesscripts/helpers/labels.py
-                occlusion_total = np.sum(labels_count[unique_labels>10])
-                if occlusion_total/labels_size > 0.1:
+    def segment_svi(self, update = False):
+        if not update and os.path.exists(os.path.join(self.mly_folder,"metadata/filtered_images.csv")):
+            print("The output file already exists, please set update to True if you want to update it")
+        else:
+            filtered_list = []
+            for image_file in tqdm.tqdm(glob.glob(os.path.join(self.mly_folder,"image/*.jpg"))):
+                try:
+                    image = Image.open(image_file)
+                    centre_crop = transforms.Compose([
+                            transforms.Resize((512,512))
+                    ])
+                    image = centre_crop(image)
+                    labels = self.segmentation_model.predict_one(image)
+                    labels_size = labels.size
+                    unique_labels, labels_count = np.unique(labels, return_counts=True)
+                    # refer to the labels: https://github.com/mcordts/cityscapesScripts/blob/master/cityscapesscripts/helpers/labels.py
+                    occlusion_total = np.sum(labels_count[unique_labels>10])
+                    if occlusion_total/labels_size > 0.1:
+                        mly_id = os.path.split(image_file)[1].replace(".jpg","")
+                        filtered_list.append(mly_id)
+                except:
+                    print("Error with " + image_file)
+            filtered_df = pd.DataFrame(filtered_list, columns =["id"])
+            filtered_df.to_csv(os.path.join(self.mly_folder,"metadata/filtered_images.csv"))
+
+    def classify_svi(self, update = False):
+        if not update and os.path.exists(os.path.join(self.gsv_folder,"metadata/filtered_images.csv")):
+            print("The output file already exists, please set update to True if you want to update it")
+        else:
+            # load the image transformer
+            centre_crop = transforms.Compose([
+                    transforms.Resize((256,256)),
+                    transforms.CenterCrop(224),
+                    transforms.ToTensor(),
+                    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            ])
+
+            # load the class label
+            file_name = os.path.join(self.pretrained_model_folder, 'categories_places365.txt')
+            classes = list()
+            with open(file_name) as class_file:
+                for line in class_file:
+                    classes.append(line.strip().split(' ')[0][3:])
+            classes = tuple(classes)
+            
+            filtered_list = []
+            for image_file in tqdm.tqdm(glob.glob(os.path.join(self.gsv_folder,"image/panorama/*.jpg"))):
+                img = Image.open(image_file)
+                input_img = V(centre_crop(img).unsqueeze(0))
+
+                # forward pass
+                logit = self.classification_model.forward(input_img)
+                h_x = F.softmax(logit, 1).data.squeeze()
+                probs, idx = h_x.sort(0, True)
+                print(image_file)
+                # output the prediction
+                for i in range(0, 5):
+                    print('{:.3f} -> {}'.format(probs[i], classes[idx[i]]))
+                
+                # refer to the labels: https://github.com/zhoubolei/places_devkit/blob/master/categories_places365.txt
+                if (classes[idx[0]] == "highway") & (float(probs[0]) > 0.5):
                     mly_id = os.path.split(image_file)[1].replace(".jpg","")
                     filtered_list.append(mly_id)
-            except:
-                print("Error with " + image_file)
-        filtered_df = pd.DataFrame(filtered_list, columns =["id"])
-        filtered_df.to_csv(os.path.join(self.mly_folder,"metadata/filtered_images.csv"))
-
-    def classify_svi(self):
-        # load the image transformer
-        centre_crop = transforms.Compose([
-                transforms.Resize((256,256)),
-                transforms.CenterCrop(224),
-                transforms.ToTensor(),
-                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ])
-
-        # load the class label
-        file_name = os.path.join(self.pretrained_model_folder, 'categories_places365.txt')
-        classes = list()
-        with open(file_name) as class_file:
-            for line in class_file:
-                classes.append(line.strip().split(' ')[0][3:])
-        classes = tuple(classes)
-        
-        filtered_list = []
-        for image_file in tqdm.tqdm(glob.glob(os.path.join(self.gsv_folder,"image/panorama/*.jpg"))):
-            img = Image.open(image_file)
-            input_img = V(centre_crop(img).unsqueeze(0))
-
-            # forward pass
-            logit = self.classification_model.forward(input_img)
-            h_x = F.softmax(logit, 1).data.squeeze()
-            probs, idx = h_x.sort(0, True)
-            print(image_file)
-            # output the prediction
-            for i in range(0, 5):
-                print('{:.3f} -> {}'.format(probs[i], classes[idx[i]]))
-            
-            # refer to the labels: https://github.com/zhoubolei/places_devkit/blob/master/categories_places365.txt
-            if (classes[idx[0]] == "highway") & (float(probs[0]) > 0.5):
-                mly_id = os.path.split(image_file)[1].replace(".jpg","")
-                filtered_list.append(mly_id)
-        filtered_df = pd.DataFrame(filtered_list, columns =["id"])
-        filtered_df.to_csv(os.path.join(self.gsv_folder,"metadata/filtered_images.csv"))
-        pass
+            filtered_df = pd.DataFrame(filtered_list, columns =["id"])
+            filtered_df.to_csv(os.path.join(self.gsv_folder,"metadata/filtered_images.csv"))
         
     def get_latest_gsv_only(self, threshold=10):
         # load gsv_metadata with distance
@@ -193,16 +198,17 @@ class FormatFolder():
             numpy array: stitched img
         """
         img_list = glob.glob(os.path.join(self.gsv_folder, f"image/perspective/{gsv_id}*.png"))
-        img_agg = None
-        for i in range(0,360,90):
-            # get img that match with the direction in each loop
-            img_file_match = list(filter(lambda x: f"Direction_{str(i)}" in x, img_list))[0]
-            img_temp = cv2.imread(img_file_match)
-            if img_agg is None:
-                img_agg = img_temp
-            else:
-                img_agg = cv2.hconcat([img_agg, img_temp])
-        return img_agg
+        if len(img_list) > 0:
+            img_agg = None
+            for i in range(0,360,90):
+                # get img that match with the direction in each loop
+                img_file_match = list(filter(lambda x: f"Direction_{str(i)}" in x, img_list))[0]
+                img_temp = cv2.imread(img_file_match)
+                if img_agg is None:
+                    img_agg = img_temp
+                else:
+                    img_agg = cv2.hconcat([img_agg, img_temp])
+            return img_agg
         
     # define a function to check the file validity and save to the new folders
     def check_and_save(self, df, train_test, model):
@@ -259,14 +265,18 @@ class FormatFolder():
         gsv_metadata = pd.read_csv(os.path.join(self.gsv_folder,"metadata/gsv_metadata_cv_filtered.csv"))
 
         # test and train split
-        train, test = train_test_split(gsv_metadata, test_size=test_size, random_state=random_state)
+        if test_size != 1:
+            train, test = train_test_split(gsv_metadata, test_size=test_size, random_state=random_state)
+        else:
+            train, test = None, gsv_metadata
         print(train, test)
         
         # loop through train to copy gsv and mly images
         for df, train_test in zip([train,test], ["train","test"]):
             # apply check_and_save to df
             tqdm.tqdm.pandas()
-            df.progress_apply(self.check_and_save, args=(train_test, model), axis=1)
+            if df is not None:
+                df.progress_apply(self.check_and_save, args=(train_test, model), axis=1)
             
     def prepare_pix2pix(self,model):
         fold_A = os.path.join(self.new_folder,model+"_init","A")

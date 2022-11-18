@@ -21,11 +21,9 @@ import tqdm
 class Downloader:
     """class for downloading images from mapillary
     """
-    def __init__(self, input_folder, output_folder, MLY_ACCESS_TOKEN):
+    def __init__(self, output_folder, MLY_ACCESS_TOKEN):
         # set access token for mapillary
         mly.interface.set_access_token(MLY_ACCESS_TOKEN)
-        # set input folders
-        self.input_folder = input_folder
         # set output folders
         self.output_folder = output_folder
         # mapillary
@@ -164,10 +162,7 @@ class Downloader:
         if not update and os.path.exists(os.path.join(self.mly_metadata_output_folder, "response.geojson")):
             print("The output file already exists, please set update to True if you want to update it")
         else:
-            if boundary.get("west") != None:
-                response = mly.interface.images_in_bbox(boundary, organization_id = ORGANIZATION_ID)
-            else:
-                response = mly.interface.images_in_geojson(boundary, organization_id = ORGANIZATION_ID)
+            response = mly.interface.images_in_bbox(boundary, organization_id = ORGANIZATION_ID)
             response_df = gpd.read_file(response)
             # save response in the output_folder as geojson
             response_df.to_file(os.path.join(self.mly_metadata_output_folder, "response.geojson"), driver='GeoJSON')
@@ -349,7 +344,7 @@ class Downloader:
         
         # split the input df and map the input function
         def parallelize_dataframe(input_df, outer_func):
-            num_processes = self.cpu_num
+            num_processes = self.cpu_num*10
             pool = ThreadPool(processes=num_processes)
             input_df_split = np.array_split(input_df, num_processes)
             output_df = pd.concat(pool.map(outer_func, input_df_split), ignore_index = True)
@@ -368,7 +363,7 @@ class Downloader:
             
     # calculate the distance from the original input location
     def calc_dist(self, update = False):
-        if not update and os.path.join(self.gsv_metadata_output_folder, "gsv_metadata_dist.csv"):
+        if not update and os.path.exists(os.path.join(self.gsv_metadata_output_folder, "gsv_metadata_dist.csv")):
             print("The output file already exists, please set update to True if you want to update it")
         else:
             # assign gsv_metadata to gsv_metadata
@@ -396,15 +391,18 @@ class Downloader:
         # set path to the 1st error log csv file
         log_path = os.path.join(self.gsv_metadata_output_folder,"gsv_metadata_error_1.csv")
         # Number of threads: num of cpus
-        nthreads = self.cpu_num
+        nthreads = self.cpu_num*10
         # set user agent to avoid gettting banned
         UA = my_task.get_ua(path=ua_path)
         # run the main function to download gsv as the 1st try
         my_task.main(UA, path_pid, dir_save, log_path, nthreads)
         # some good pids will be missed when 1 bad pid is found in multithreading
         # so run again the main function with error log file and only 1 thread
-        log_path_2 = os.path.join(self.gsv_metadata_output_folder,"gsv_metadata_error_2.csv")
-        my_task.main(UA, log_path, dir_save, log_path_2, 1)
+        try:
+            log_path_2 = os.path.join(self.gsv_metadata_output_folder,"gsv_metadata_error_2.csv")
+            my_task.main(UA, log_path, dir_save, log_path_2, 1)
+        except FileNotFoundError:
+            print("No error was found while downloading")
             
             
     def transform_pano_to_perspective(self):
