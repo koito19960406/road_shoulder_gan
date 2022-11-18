@@ -91,3 +91,7 @@ models/
 
 # Mypy cache
 .mypy_cache/
+.Rproj.user
+.RData
+.Rhistory
+*.Rproj
