@@ -3,7 +3,21 @@ road_shoulder_gan
 
 GAN to generate images from cyclists and pedestrians
 
-Project Organization
+# Requirements
+
+Use `virtualenv`, `requirements.txt` file, or the conda environment
+
+# Evaluation
+
+- FID and other metrics can be used from the [TorchMetrics package](https://github.com/Lightning-AI/torchmetrics) `pip install torchmetrics`
+
+# Resources
+- [Diffusion models explanation](https://www.youtube.com/watch?v=1CIpzeNxIhU)
+- [Stable diffusion in code](https://www.youtube.com/watch?v=-lz30by8-sU)
+- [CycleGAN and Pix2Pix in PyTorch](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix)
+
+
+# Project Organization
 ------------
 
     ├── LICENSE
