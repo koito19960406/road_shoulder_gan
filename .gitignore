@@ -95,3 +95,10 @@ models/
 .RData
 .Rhistory
 *.Rproj
+
+# data files
+road_shoulder_gan/
+data/external/
+data/interim/
+data/processed/
+data/raw/

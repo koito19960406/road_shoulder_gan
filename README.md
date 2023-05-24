@@ -1,71 +1,61 @@
-road_shoulder_gan
-==============================
+# Sidewalk the Talk: Translating street view imagery to correct perspectives to enhance bikeability and walkability studies
 
-GAN to generate images from cyclists and pedestrians
+This repository is the official implementation of [Sidewalk the Talk: Translating street view imagery to correct perspectives to enhance bikeability and walkability studies](https://arxiv.org/abs/2030.12345).
 
-# Requirements
+>📋  Optional: include a graphic explaining your approach/main result, bibtex entry, link to demos, blog posts and tutorials
 
-Use `virtualenv`, `requirements.txt` file, or the conda environment
+`road_shoulder_gan/` contains the entire original repo and Koichi's SSD contents.
+`src/` is the original code from the ISM
 
-# Evaluation
+## Requirements
 
-- FID and other metrics can be used from the [TorchMetrics package](https://github.com/Lightning-AI/torchmetrics) `pip install torchmetrics`
+To install requirements:
 
-# Resources
-- [Diffusion models explanation](https://www.youtube.com/watch?v=1CIpzeNxIhU)
-- [Stable diffusion in code](https://www.youtube.com/watch?v=-lz30by8-sU)
-- [CycleGAN and Pix2Pix in PyTorch](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix)
+```setup
+pip install -r requirements.txt
+```
 
+## Training
 
-# Project Organization
-------------
+To train the model(s) in the paper, run this command:
 
-    ├── LICENSE
-    ├── Makefile           <- Makefile with commands like `make data` or `make train`
-    ├── README.md          <- The top-level README for developers using this project.
-    ├── data
-    │   ├── external       <- Data from third party sources.
-    │   ├── interim        <- Intermediate data that has been transformed.
-    │   ├── processed      <- The final, canonical data sets for modeling.
-    │   └── raw            <- The original, immutable data dump.
-    │
-    ├── docs               <- A default Sphinx project; see sphinx-doc.org for details
-    │
-    ├── models             <- Trained and serialized models, model predictions, or model summaries
-    │
-    ├── notebooks          <- Jupyter notebooks. Naming convention is a number (for ordering),
-    │                         the creator's initials, and a short `-` delimited description, e.g.
-    │                         `1.0-jqp-initial-data-exploration`.
-    │
-    ├── references         <- Data dictionaries, manuals, and all other explanatory materials.
-    │
-    ├── reports            <- Generated analysis as HTML, PDF, LaTeX, etc.
-    │   └── figures        <- Generated graphics and figures to be used in reporting
-    │
-    ├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
-    │                         generated with `pip freeze > requirements.txt`
-    │
-    ├── setup.py           <- makes project pip installable (pip install -e .) so src can be imported
-    ├── src                <- Source code for use in this project.
-    │   ├── __init__.py    <- Makes src a Python module
-    │   │
-    │   ├── data           <- Scripts to download or generate data
-    │   │   └── make_dataset.py
-    │   │
-    │   ├── features       <- Scripts to turn raw data into features for modeling
-    │   │   └── build_features.py
-    │   │
-    │   ├── models         <- Scripts to train models and then use trained models to make
-    │   │   │                 predictions
-    │   │   ├── predict_model.py
-    │   │   └── train_model.py
-    │   │
-    │   └── visualization  <- Scripts to create exploratory and results oriented visualizations
-    │       └── visualize.py
-    │
-    └── tox.ini            <- tox file with settings for running tox; see tox.readthedocs.io
+```train
+python train.py --input-data <path_to_data> --alpha 10 --beta 20
+```
+
+>📋  Describe how to train the models, with example commands on how to train the models in your paper, including the full training procedure and appropriate hyperparameters.
+
+## Evaluation
+
+To evaluate my model on ImageNet, run:
+
+```eval
+python eval.py --model-file mymodel.pth --benchmark imagenet
+```
+
+>📋  Describe how to evaluate the trained models on benchmarks reported in the paper, give commands that produce the results (section below).
+
+## Pre-trained Models
+
+You can download pretrained models here:
+
+- [My awesome model](https://drive.google.com/mymodel.pth) trained on ImageNet using parameters x,y,z.
+
+>📋  Give a link to where/how the pretrained models can be downloaded and how they were trained (if applicable).  Alternatively you can have an additional column in your results table with a link to the models.
+
+## Results
+
+Our model achieves the following performance on :
+
+### [Image Classification on ImageNet](https://paperswithcode.com/sota/image-classification-on-imagenet)
+
+| Model name         | Top 1 Accuracy  | Top 5 Accuracy |
+| ------------------ |---------------- | -------------- |
+| My awesome model   |     85%         |      95%       |
+
+>📋  Include a table of results from your paper, and link back to the leaderboard for clarity and context. If your main result is a figure, include that figure and link to the command or notebook to reproduce it.
 
 
---------
+## Contributing
 
-<p><small>Project based on the <a target="_blank" href="https://drivendata.github.io/cookiecutter-data-science/">cookiecutter data science project template</a>. #cookiecutterdatascience</small></p>
+>📋  Pick a licence and describe how to contribute to your code repository.
