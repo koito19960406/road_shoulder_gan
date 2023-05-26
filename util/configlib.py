@@ -22,10 +22,10 @@ def parse(save_fname: str = "") -> Dict[str, Any]:
     config.update(vars(parser.parse_args()))
     logging.info("Parsed %i arguments.", len(config))
     # Save passed arguments
-    if save_fname:
-        with open(save_fname, "w") as fout:
-            fout.write("\n".join(sys.argv[1:]))
-        logging.info("Saving arguments to %s.", save_fname)
+    # if save_fname:
+    #     with open(save_fname, "w") as fout:
+    #         fout.write("\n".join(sys.argv[1:]))
+    #     logging.info("Saving arguments to %s.", save_fname)
     return config
 
 
