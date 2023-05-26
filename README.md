@@ -4,6 +4,7 @@ This repository is the official implementation of [Sidewalk the Talk: Translatin
 
 >📋  Optional: include a graphic explaining your approach/main result, bibtex entry, link to demos, blog posts and tutorials
 
+`archive/` folder where previous code or code not being used is stored
 `road_shoulder_gan/` contains the entire original repo and Koichi's SSD contents.
 `docs/` documentation from cookiecutter
 `src/` is the original code from the ISM.
@@ -17,13 +18,27 @@ To install requirements:
 pip install -r requirements.txt
 ```
 
+Or if you use conda
+```conda
+conda env create --file environment.yaml
+```
+
 ## Training
 
-The folder `configs/` have different txt where all the inline arguments (Argparse) are stored in a text file for easier management and reproducibility
-To train the model(s) in the paper, inside `scripts/` run this command:
+The folder `configs/` have different `txt` files  where all the inline arguments (Argparse) are stored for easier management and reproducibility
+Each argument name and its value are on a new line.
+Boolean arguments don't need a `True` or `False` value.
+
+To train the model(s) in the paper:
 
 ```train
-python train.py configs/default_cyclegan.txt
+./train_script.sh configs/<config_name>.txt
+```
+
+The `train_script.sh` file will parse the inline arguments accordingly and call `train.py` with them and call `train.py` with them.
+
+```train_script.sh
+python train.py `cat <$1 | tr '\n' ' '`
 ```
 
 ## Evaluation
