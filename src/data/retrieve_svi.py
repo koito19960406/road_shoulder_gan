@@ -17,6 +17,8 @@ import logging
 import queue
 import glob
 import tqdm
+from zensvi.download import GSVDownloader
+from zensvi.transform import ImageTransformer
 
 class Downloader:
     """class for downloading images from mapillary
@@ -382,79 +384,21 @@ class Downloader:
         """function to download gsv svi with multiple threads
         """
         # create output folders
-        dir_save = os.path.join(self.gsv_image_output_folder,"panorama")
+        dir_save = self.gsv_image_output_folder
         os.makedirs(dir_save, exist_ok = True)
         # set path to the pid csv file
         path_pid = os.path.join(self.gsv_metadata_output_folder,"gsv_metadata.csv")
-        # set path to user agent info csv file
-        ua_path = "src/data/get_img/utils/UserAgent.csv"
         # set path to the 1st error log csv file
         log_path = os.path.join(self.gsv_metadata_output_folder,"gsv_metadata_error_1.csv")
-        # Number of threads: num of cpus
-        nthreads = self.cpu_num*10
-        # set user agent to avoid gettting banned
-        UA = my_task.get_ua(path=ua_path)
-        # run the main function to download gsv as the 1st try
-        my_task.main(UA, path_pid, dir_save, log_path, nthreads)
-        # some good pids will be missed when 1 bad pid is found in multithreading
-        # so run again the main function with error log file and only 1 thread
-        try:
-            log_path_2 = os.path.join(self.gsv_metadata_output_folder,"gsv_metadata_error_2.csv")
-            my_task.main(UA, log_path, dir_save, log_path_2, 1)
-        except FileNotFoundError:
-            print("No error was found while downloading")
             
+        downloader = GSVDownloader(log_path=log_path)
+        downloader.download_svi(dir_output=dir_save, path_pid=path_pid)
             
     def transform_pano_to_perspective(self):
-        # define function to run in the threading
-        def run(path_input_raw, path_output_c,show_size):
-            # get perspective at each 90 degree
-            thetas = [0, 90, 180, 270]
-            FOV = 90
-
-            # set aspect as 9 to 16
-            aspects_v = (2.25, 4)
-            aspects = (9, 16)
-
-            img_raw = cv2.imread(path_input_raw, cv2.IMREAD_COLOR)
-            equ_raw = Equirectangular(img_raw)
-
-            for theta in thetas:
-                height = int(aspects_v[0] * show_size)
-                width = int(aspects_v[1] * show_size)
-                aspect_name = '%s--%s'%(aspects[0], aspects[1])
-                img_raw = equ_raw.GetPerspective(FOV, theta, 0, height, width)
-                path_output = path_output_c[:]
-                path_output_raw = path_output.replace('.png', '_Direction_%s_FOV_%s_aspect_%s_raw.png'%(theta, FOV, aspect_name))
-                if not os.path.exists(path_output_raw):
-                    cv2.imwrite(path_output_raw, img_raw)
-        
         # set and create directories       
-        dir_input_raw = os.path.join(self.gsv_image_output_folder,"panorama")
+        dir_input_raw = os.path.join(self.gsv_image_output_folder,"gsv_panorama")
         dir_out_show = os.path.join(self.gsv_image_output_folder,"perspective")
         os.makedirs(dir_out_show, exist_ok = True)
 
-        # set parameters
-        index = 0
-        show_size = 100  # 像素大小 * 4 或者 3
-        threads = []
-        num_thread = self.cpu_num
-
-        for name in os.listdir(dir_input_raw):
-            index += 1
-
-            path_input_raw = os.path.join(dir_input_raw, name)
-            path_output = os.path.join(dir_out_show, name.replace('jpg','png'))
-
-            if index % num_thread == 0:
-                print('Now:', index)
-                t = threading.Thread(target=run, args=(path_input_raw, path_output, show_size,))
-                threads.append(t)
-                for t in threads:
-                    t.setDaemon(True)
-                    t.start()
-                t.join()
-                threads = []
-            else:
-                t = threading.Thread(target=run, args=(path_input_raw, path_output, show_size,))
-                threads.append(t)
+        transformer = ImageTransformer(dir_input_raw, dir_out_show)
+        transformer.transform_images(style_list=["perspective"])

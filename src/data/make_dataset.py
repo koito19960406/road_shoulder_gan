@@ -11,7 +11,7 @@ import geopandas as gpd
 # @click.command()
 # @click.argument('input_filepath', type=click.Path(exists=True))
 # @click.argument('output_filepath', type=click.Path())
-def main(input_folder, output_folder, MLY_ACCESS_TOKEN,ORGANIZATION_ID):
+def main(output_folder, MLY_ACCESS_TOKEN,ORGANIZATION_ID):
     """ Runs data processing scripts to turn raw data from (../raw) into
         cleaned data ready to be analyzed (saved in ../processed).
     """
@@ -19,7 +19,7 @@ def main(input_folder, output_folder, MLY_ACCESS_TOKEN,ORGANIZATION_ID):
     logger.info('making final data set from raw data')
     
     # create Downloader instance to download SVI from mapillary and google street view
-    downloader = Downloader(input_folder, output_folder, MLY_ACCESS_TOKEN)
+    downloader = Downloader(output_folder, MLY_ACCESS_TOKEN)
     # set bbox for the entire singapore
     bbox = {'south': 1.1304753,
             'north': 1.4504753,
@@ -41,10 +41,10 @@ def main(input_folder, output_folder, MLY_ACCESS_TOKEN,ORGANIZATION_ID):
     downloader.download_mly_image()
     
     # get metadata
-    downloader.get_gsv_metadata_multiprocessing(update = True)
+    downloader.get_gsv_metadata_multiprocessing()
 
     # calculate distance
-    downloader.calc_dist(update = True)
+    downloader.calc_dist()
     
     # download GSV images
     downloader.download_gsv()
@@ -63,15 +63,15 @@ if __name__ == '__main__':
     # load up the .env entries as environment variables
     load_dotenv(find_dotenv())
     MLY_ACCESS_TOKEN = os.getenv('MLY_ACCESS_TOKEN')
-    ORGANIZATION_ID = [int(os.getenv('ORGANIZATION_ID'))]
+    ORGANIZATION_ID_list = [[int(os.getenv('ORGANIZATION_ID'))],[int(os.getenv('ORGANIZATION_ID_2'))]]
+    
     # ORGANIZATION_ID = [253500583201167]
     # set your own data path
-    root_dir = "/Volumes/Data_Store/road_shoulder_gan"
-    if os.path.exists(root_dir):
-        input_folder= os.path.join(root_dir,"data/external")
-        output_folder = os.path.join(root_dir,"data/raw")
-        main(input_folder,output_folder,MLY_ACCESS_TOKEN,ORGANIZATION_ID)   
-    else:
-        input_folder = "./data/external"
-        output_folder = "./data/raw"
-        main(input_folder,output_folder,MLY_ACCESS_TOKEN,ORGANIZATION_ID) 
+    root_dir = "/Volumes/ExFAT/road_shoulder_gan"
+    for ORGANIZATION_ID, data_name in zip(ORGANIZATION_ID_list, ["road_shoulder", "sidewalk"]):
+        if os.path.exists(root_dir):
+            output_folder = os.path.join(root_dir, "data/raw", data_name)
+            main(output_folder,MLY_ACCESS_TOKEN,ORGANIZATION_ID)   
+        else:
+            output_folder = "./data/raw"
+            main(output_folder,MLY_ACCESS_TOKEN,ORGANIZATION_ID) 

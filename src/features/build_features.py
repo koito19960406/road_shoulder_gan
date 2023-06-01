@@ -97,7 +97,7 @@ class FilterImage:
             classes = tuple(classes)
             
             filtered_list = []
-            for image_file in tqdm.tqdm(glob.glob(os.path.join(self.gsv_folder,"image/panorama/*.jpg"))):
+            for image_file in tqdm.tqdm(glob.glob(os.path.join(self.gsv_folder,"image/gsv_panorama/*.jpg"))):
                 img = Image.open(image_file)
                 input_img = V(centre_crop(img).unsqueeze(0))
 
@@ -287,16 +287,17 @@ class FormatFolder():
 if __name__ == '__main__':
     ssl._create_default_https_context = ssl._create_unverified_context
     root_dir = "/Volumes/ExFAT/road_shoulder_gan"
-    model_folder = os.path.join(root_dir, "data/external")
-    gsv_folder = os.path.join(root_dir, "data/raw/gsv")
-    mly_folder = os.path.join(root_dir, "data/raw/mapillary")
-    new_folder = os.path.join(root_dir, "data/processed")
-    # filter_image = FilterImage(model_folder, gsv_folder, mly_folder)
-    # filter_image.get_latest_gsv_only()
-    # filter_image.segment_svi()
-    # filter_image.classify_svi()
-    # filter_image.filter_with_cv_result()
-    format_folder = FormatFolder(gsv_folder, mly_folder, new_folder)
-    # format_folder.create_new_folder(model = "cyclegan_filtered")
-    format_folder.create_new_folder(model = "pix2pix_filtered")
-    format_folder.prepare_pix2pix("pix2pix_filtered")
+    for data_name in ["road_shoulder", "sidewalk"]:
+        model_folder = os.path.join(root_dir, "data/external")
+        gsv_folder = os.path.join(root_dir, f"data/raw/{data_name}/gsv")
+        mly_folder = os.path.join(root_dir, f"data/raw/{data_name}/mapillary")
+        new_folder = os.path.join(root_dir, f"data/processed/{data_name}")
+        filter_image = FilterImage(model_folder, gsv_folder, mly_folder)
+        filter_image.get_latest_gsv_only()
+        filter_image.segment_svi()
+        filter_image.classify_svi()
+        filter_image.filter_with_cv_result()
+        format_folder = FormatFolder(gsv_folder, mly_folder, new_folder)
+        format_folder.create_new_folder(model = "cyclegan_filtered")
+        format_folder.create_new_folder(model = "pix2pix_filtered")
+        format_folder.prepare_pix2pix("pix2pix_filtered")
