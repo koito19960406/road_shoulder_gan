@@ -1,0 +1,2 @@
+#!./scripts/test_cyclegan.sh
+python ../pytorch-CycleGAN-and-pix2pix/test.py --dataroot /Volumes/ExFAT/road_shoulder_gan/data/processed/cyclegan --name bicycle_cyclegan --checkpoints_dir /Volumes/ExFAT/road_shoulder_gan/models/20220909 --model cycle_gan

@@ -1,0 +1,1 @@
+python ../pytorch-CycleGAN-and-pix2pix/test.py --dataroot /Volumes/ExFAT/road_shoulder_gan/data/processed/cyclegan --name bicycle_pix2pix --checkpoints_dir /Volumes/ExFAT/road_shoulder_gan/models/20220914 --model pix2pix --dataset_mode aligned
