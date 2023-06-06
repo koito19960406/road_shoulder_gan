@@ -23,10 +23,14 @@ class Tester:
 
 if __name__ == '__main__':
     test_script = "F:/road_shoulder_gan/src/models/pytorch-CycleGAN-and-pix2pix/test.py"
-    args_file_list = ["F:/road_shoulder_gan/configs/test_default_sidewalk_pix2pix.txt",
-                      "F:/road_shoulder_gan/configs/test_default_sidewalk_cyclegan.txt",
-                      "F:/road_shoulder_gan/configs/sidewalk_pix2pix_flip.txt",
-                      "F:/road_shoulder_gan/configs/sidewalk_cyclegan_flip.txt"]
+    # set args folder path
+    args_folder_path = "F:/road_shoulder_gan/configs"
+    # make a list of files that start with "test_" and end with ".txt" with pathlib
+    args_file_list = [file for file in Path(args_folder_path).iterdir() if file.name.startswith("test_") and file.name.endswith(".txt")]
+    # args_file_list = ["F:/road_shoulder_gan/configs/test_default_sidewalk_pix2pix.txt",
+    #                   "F:/road_shoulder_gan/configs/test_default_sidewalk_cyclegan.txt",
+    #                   "F:/road_shoulder_gan/configs/sidewalk_pix2pix_flip.txt",
+    #                   "F:/road_shoulder_gan/configs/sidewalk_cyclegan_flip.txt"]
     for args_file in args_file_list:# Set the model directory path
         print(f"Working on {args_file}")
         model_directory_path = Path(f"F:/road_shoulder_gan/models/{Path(args_file).stem}")
