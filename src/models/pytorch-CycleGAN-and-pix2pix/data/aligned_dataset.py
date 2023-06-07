@@ -44,6 +44,8 @@ class AlignedDataset(BaseDataset):
         w2 = int(w / 2)
         A = AB.crop((0, 0, w2, h))
         B = AB.crop((w2, 0, w, h))
+        A_raw = A.copy()
+        B_raw = B.copy()
 
         # apply the same transform to both A and B
         transform_params = get_params(self.opt, A.size)
@@ -53,7 +55,8 @@ class AlignedDataset(BaseDataset):
         A = A_transform(A)
         B = B_transform(B)
 
-        return {'A': A, 'B': B, 'A_paths': AB_path, 'B_paths': AB_path}
+        # add raw A and B to the dictionary
+        return {'A': A, 'B': B, 'A_raw': A_raw, 'B_raw': B_raw, 'A_paths': AB_path, 'B_paths': AB_path}
 
     def __len__(self):
         """Return the total number of images in the dataset."""
