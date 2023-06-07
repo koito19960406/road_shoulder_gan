@@ -86,6 +86,8 @@ class Pix2PixModel(BaseModel):
         AtoB = self.opt.direction == 'AtoB'
         self.real_A = input['A' if AtoB else 'B'].to(self.device)
         self.real_B = input['B' if AtoB else 'A'].to(self.device)
+        self.real_A_raw = input['A_raw' if AtoB else 'B_raw'].to(self.device)
+        self.real_B_raw = input['B_raw' if AtoB else 'A_raw'].to(self.device)
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
 
     def forward(self):
@@ -115,7 +117,7 @@ class Pix2PixModel(BaseModel):
         # Second, G(A) = B
         self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_L1
         # calculate miou
-        self.loss_miou = self.miou_metric(self.real_B, self.fake_B) * self.opt.lambda_miou
+        self.loss_miou = self.miou_metric(self.real_B_raw, self.fake_B) * self.opt.lambda_miou
         # combine loss and calculate gradients
         self.loss_G = self.loss_G_GAN + self.loss_G_L1 + self.loss_miou
         self.loss_G.backward()
