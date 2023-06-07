@@ -1,7 +1,7 @@
 --dataroot
 F:\road_shoulder_gan\data\processed\sidewalk\pix2pix_filtered
 --name
-default_sidewalk_pix2pix
+sidewalk_pix2pix_default
 --gpu_ids
 0
 --checkpoints_dir

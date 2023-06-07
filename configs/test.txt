@@ -1,4 +1,0 @@
---dataroot
-data/processed/cyclegan_filtered
---gpu_ids
--1
