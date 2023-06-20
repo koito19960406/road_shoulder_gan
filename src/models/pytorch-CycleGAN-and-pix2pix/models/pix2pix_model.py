@@ -1,7 +1,7 @@
 import torch
 from .base_model import BaseModel
 from . import networks
-from util import mIoU
+from util.miou import mIoU
 
 
 class Pix2PixModel(BaseModel):
@@ -46,7 +46,7 @@ class Pix2PixModel(BaseModel):
         """
         BaseModel.__init__(self, opt)
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
-        self.loss_names = ['G_GAN', 'G_L1', 'D_real', 'D_fake', 'miou']
+        self.loss_names = ['G_GAN', 'G_L1', 'D_real', 'D_fake', 'G_mIoU']
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
         self.visual_names = ['real_A', 'fake_B', 'real_B']
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
@@ -72,8 +72,8 @@ class Pix2PixModel(BaseModel):
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)
             
-        # define miou metric
-        self.miou_metric = mIoU(opt)
+        # define mIoU metric
+        self.mIoU_metric = mIoU(opt)
             
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
@@ -86,8 +86,6 @@ class Pix2PixModel(BaseModel):
         AtoB = self.opt.direction == 'AtoB'
         self.real_A = input['A' if AtoB else 'B'].to(self.device)
         self.real_B = input['B' if AtoB else 'A'].to(self.device)
-        self.real_A_raw = input['A_raw' if AtoB else 'B_raw'].to(self.device)
-        self.real_B_raw = input['B_raw' if AtoB else 'A_raw'].to(self.device)
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
 
     def forward(self):
@@ -116,10 +114,14 @@ class Pix2PixModel(BaseModel):
         self.loss_G_GAN = self.criterionGAN(pred_fake, True)
         # Second, G(A) = B
         self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_L1
-        # calculate miou
-        self.loss_miou = self.miou_metric(self.real_B_raw, self.fake_B) * self.opt.lambda_miou
+        # prepare input for mIoU calculation
+        real_B_mIoU = self.real_B.add(1).div(2) # shift the value range of -1 and 1 to 0 and 1
+        fake_B_mIoU = self.fake_B.add(1).div(2) 
+        real_B_mIoU = [image for image in real_B_mIoU] # convert to a list of tensors for segmentation
+        fake_B_mIoU = [image for image in fake_B_mIoU]
+        self.loss_G_mIoU = self.mIoU_metric(real_B_mIoU, fake_B_mIoU) * self.opt.lambda_mIoU # compute mIoU
         # combine loss and calculate gradients
-        self.loss_G = self.loss_G_GAN + self.loss_G_L1 + self.loss_miou
+        self.loss_G = self.loss_G_GAN + self.loss_G_L1 + self.loss_G_mIoU
         self.loss_G.backward()
 
     def optimize_parameters(self):

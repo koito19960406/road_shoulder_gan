@@ -33,11 +33,19 @@ class mIoU:
         segmented_real = self._semantic_segmentation(real)
         segmented_fake = self._semantic_segmentation(fake)
 
-        intersect = torch.logical_and(segmented_real, segmented_fake)
-        union = torch.logical_or(segmented_real, segmented_fake)
-        IoU = torch.sum(intersect) / torch.sum(union)
+        unique_classes = torch.unique(torch.cat([segmented_real, segmented_fake])) # Get all unique classes
+
+        IoU_list = []
+        for cls in unique_classes:
+            # For each class, calculate IoU
+            intersect = torch.logical_and(segmented_real == cls, segmented_fake == cls)
+            union = torch.logical_or(segmented_real == cls, segmented_fake == cls)
+            IoU = torch.sum(intersect.float()) / torch.sum(union.float())
+            IoU_list.append(IoU)
+
+        mIoU = torch.mean(torch.stack(IoU_list)) # Calculate mean IoU
         
-        return 1 - IoU
+        return 1 - mIoU
 
     def _semantic_segmentation(self, images):
         """
@@ -49,10 +57,17 @@ class mIoU:
         Returns:
             torch.Tensor: Semantic segmentation output tensor.
         """
-        inputs = self.processor(images=images.cpu().numpy(), return_tensors="pt").to(self.model.device)
+        inputs = self.processor(images=images, return_tensors="pt").to(self.model.device)
         with torch.no_grad():
             outputs = self.model(**inputs)
-        segmentations = self.processor.post_process_semantic_segmentation(outputs, target_sizes=inputs["input_ids"].shape[-2:])
-        segmentations_tensor = torch.from_numpy(segmentations).to(self.device)
+
+        # Create a list of target sizes
+        target_sizes = [img.shape[-2:] for img in images]
+
+        segmentations = self.processor.post_process_semantic_segmentation(outputs, target_sizes=target_sizes)
         
+        # Stack tensors along a new dimension to create a batch
+        segmentations_tensor = torch.stack(segmentations, dim=0).to(self.device)
+
         return segmentations_tensor
+

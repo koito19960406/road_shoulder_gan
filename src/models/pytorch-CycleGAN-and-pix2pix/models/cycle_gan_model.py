@@ -3,7 +3,7 @@ import itertools
 from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
-from util import mIoU
+from util.miou import mIoU
 
 
 class CycleGANModel(BaseModel):
@@ -54,7 +54,7 @@ class CycleGANModel(BaseModel):
         """
         BaseModel.__init__(self, opt)
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
-        self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B', 'miou']
+        self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B', 'G_mIoU']
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
         visual_names_A = ['real_A', 'fake_B', 'rec_A']
         visual_names_B = ['real_B', 'fake_A', 'rec_B']
@@ -99,7 +99,7 @@ class CycleGANModel(BaseModel):
             self.optimizers.append(self.optimizer_D)
             
         # define miou metric
-        self.miou_metric = mIoU(opt)
+        self.mIoU_metric = mIoU(opt)
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
@@ -178,10 +178,14 @@ class CycleGANModel(BaseModel):
         self.loss_cycle_A = self.criterionCycle(self.rec_A, self.real_A) * lambda_A
         # Backward cycle loss || G_A(G_B(B)) - B||
         self.loss_cycle_B = self.criterionCycle(self.rec_B, self.real_B) * lambda_B
-        # calculate miou
-        self.loss_miou = self.miou_metric(self.real_B, self.fake_B) * self.opt.lambda_miou
+        # prepare input for mIoU calculation
+        real_B_mIoU = self.real_B.add(1).div(2) # shift the value range of -1 and 1 to 0 and 1
+        fake_B_mIoU = self.fake_B.add(1).div(2) 
+        real_B_mIoU = [image for image in real_B_mIoU] # convert to a list of tensors for segmentation
+        fake_B_mIoU = [image for image in fake_B_mIoU]
+        self.loss_G_mIoU = self.mIoU_metric(real_B_mIoU, fake_B_mIoU) * self.opt.lambda_mIoU # compute mIoU
         # combined loss and calculate gradients
-        self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B + self.loss_miou
+        self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B + self.loss_G_mIoU
         self.loss_G.backward()
 
     def optimize_parameters(self):
