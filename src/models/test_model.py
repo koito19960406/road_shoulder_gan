@@ -22,18 +22,39 @@ class Tester:
         subprocess.run(argument, shell = True)
 
 if __name__ == '__main__':
-    test_script = "F:/road_shoulder_gan/src/models/pytorch-CycleGAN-and-pix2pix/test.py"
-    # set args folder path
-    args_folder_path = "F:/road_shoulder_gan/configs"
-    # make a list of files that start with "test_" and end with ".txt" with pathlib
-    args_file_list = [file for file in Path(args_folder_path).iterdir() if file.name.startswith("test_") and file.name.endswith(".txt")]
-    # args_file_list = ["F:/road_shoulder_gan/configs/test_default_sidewalk_pix2pix.txt",
-    #                   "F:/road_shoulder_gan/configs/test_default_sidewalk_cyclegan.txt",
-    #                   "F:/road_shoulder_gan/configs/sidewalk_pix2pix_flip.txt",
-    #                   "F:/road_shoulder_gan/configs/sidewalk_cyclegan_flip.txt"]
-    for args_file in args_file_list:# Set the model directory path
+    # Make a list of drives
+    drives = ['E:/', 'F:/']
+
+    # Set relative paths
+    script_path_relative = Path("road_shoulder_gan/src/models/pytorch-CycleGAN-and-pix2pix/test.py")
+    args_folder_path_relative = Path("road_shoulder_gan/configs")
+    models_folder_path_relative = Path("road_shoulder_gan/models")
+
+    test_script = None
+    args_folder_path = None
+    models_folder_path = None
+
+    for drive in drives:
+        temp_script_path = Path(drive) / script_path_relative
+        temp_args_folder_path = Path(drive) / args_folder_path_relative
+        temp_models_folder_path = Path(drive) / models_folder_path_relative
+        if temp_script_path.exists():
+            test_script = temp_script_path
+        if temp_args_folder_path.exists():
+            args_folder_path = temp_args_folder_path
+        if temp_models_folder_path.exists():
+            models_folder_path = temp_models_folder_path
+
+    if not test_script or not args_folder_path or not models_folder_path:
+        print("Required directories not found in any of the drives.")
+        exit()
+
+    # make a list of files that start with "test_" and end with ".txt"
+    args_file_list = [file for file in args_folder_path.iterdir() if file.name.startswith("test_") and file.name.endswith(".txt")]
+
+    for args_file in args_file_list:  # Set the model directory path
         print(f"Working on {args_file}")
-        model_directory_path = Path(f"F:/road_shoulder_gan/models/{Path(args_file).stem}")
-        if not model_directory_path.exists():
+        fid_file = models_folder_path / args_file.stem.replace("test_", "") / 'fid/fid.txt'
+        if not Path(fid_file).exists():
             tester = Tester(test_script, args_file)
             tester.test()
