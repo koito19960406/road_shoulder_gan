@@ -1,5 +1,5 @@
 --dataroot
-F:\road_shoulder_gan\data\processed\sidewalk\cyclegan_filtered
+data\processed\sidewalk\cyclegan_filtered
 --name
 sidewalk_cyclegan_default
 --gpu_ids
@@ -75,6 +75,7 @@ main
 --save_epoch_freq
 5
 --save_by_iter
+--continue_train
 --epoch_count
 1
 --phase

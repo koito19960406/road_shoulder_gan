@@ -1,7 +1,7 @@
 --dataroot
-F:\road_shoulder_gan\data\processed\sidewalk\cyclegan_filtered
+data\processed\road_shoulder\cyclegan_filtered
 --name
-sidewalk_cyclegan_flip
+road_shoulder_cyclegan_flip_miou
 --gpu_ids
 0
 --checkpoints_dir
@@ -52,7 +52,7 @@ latest
 0
 --verbose
 --wandb_project_name
-sidewalk_cyclegan_flip
+road_shoulder_cyclegan_flip
 --display_freq
 400
 --display_ncols
@@ -74,6 +74,7 @@ main
 --save_epoch_freq
 5
 --save_by_iter
+--continue_train
 --epoch_count
 1
 --phase
@@ -94,3 +95,4 @@ lsgan
 linear
 --lr_decay_iters
 50
+--use_segmentation

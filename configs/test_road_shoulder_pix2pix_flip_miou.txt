@@ -1,13 +1,13 @@
 --dataroot
-data\processed\sidewalk\cyclegan_filtered
+data\processed\road_shoulder\pix2pix_filtered
 --name
-sidewalk_cyclegan_default
+road_shoulder_pix2pix_flip_miou
 --gpu_ids
 0
 --checkpoints_dir
 models
 --model
-cycle_gan
+pix2pix
 --input_nc
 3
 --output_nc
@@ -30,7 +30,7 @@ normal
 0.02
 --no_dropout
 --dataset_mode
-unaligned
+aligned
 --direction
 AtoB
 --serial_batches
@@ -44,7 +44,6 @@ AtoB
 256
 --preprocess
 resize_and_crop
---no_flip
 --display_winsize
 256
 --epoch
@@ -53,7 +52,7 @@ latest
 0
 --verbose
 --wandb_project_name
-default_sidewalk_cyclegan
+road_shoulder_pix2pix_flip_miou
 --results_dir
 models
 --aspect_ratio

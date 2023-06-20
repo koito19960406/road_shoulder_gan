@@ -1,7 +1,7 @@
 --dataroot
-data\processed\sidewalk\cyclegan_filtered
+data\processed\road_shoulder\cyclegan_filtered
 --name
-sidewalk_cyclegan_default
+road_shoulder_cyclegan_flip
 --gpu_ids
 0
 --checkpoints_dir
@@ -44,7 +44,6 @@ AtoB
 256
 --preprocess
 resize_and_crop
---no_flip
 --display_winsize
 256
 --epoch
@@ -53,7 +52,7 @@ latest
 0
 --verbose
 --wandb_project_name
-default_sidewalk_cyclegan
+road_shoulder_cyclegan_flip
 --results_dir
 models
 --aspect_ratio

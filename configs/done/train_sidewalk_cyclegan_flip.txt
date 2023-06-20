@@ -1,13 +1,13 @@
 --dataroot
-F:\road_shoulder_gan\data\processed\sidewalk\pix2pix_filtered
+data\processed\sidewalk\cyclegan_filtered
 --name
-sidewalk_pix2pix_flip
+sidewalk_cyclegan_flip
 --gpu_ids
 0
 --checkpoints_dir
 models
 --model
-pix2pix
+cycle_gan
 --input_nc
 3
 --output_nc
@@ -30,7 +30,7 @@ normal
 0.02
 --no_dropout
 --dataset_mode
-aligned
+unaligned
 --direction
 AtoB
 --serial_batches
@@ -52,7 +52,7 @@ latest
 0
 --verbose
 --wandb_project_name
-sidewalk_pix2pix_flip
+sidewalk_cyclegan_flip
 --display_freq
 400
 --display_ncols
@@ -74,6 +74,7 @@ main
 --save_epoch_freq
 5
 --save_by_iter
+--continue_train
 --epoch_count
 1
 --phase

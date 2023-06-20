@@ -1,5 +1,5 @@
 --dataroot
-F:\road_shoulder_gan\data\processed\sidewalk\cyclegan_filtered
+data\processed\sidewalk\cyclegan_filtered
 --name
 sidewalk_cyclegan_flip
 --gpu_ids
@@ -55,7 +55,7 @@ latest
 --wandb_project_name
 sidewalk_cyclegan_flip
 --results_dir
-F:\road_shoulder_gan\models
+models
 --aspect_ratio
 1.0
 --phase

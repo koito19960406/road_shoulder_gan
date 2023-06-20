@@ -1,7 +1,7 @@
 --dataroot
-F:\road_shoulder_gan\data\processed\sidewalk\pix2pix_filtered
+data\processed\sidewalk\pix2pix_filtered
 --name
-sidewalk_pix2pix_default
+sidewalk_pix2pix_flip
 --gpu_ids
 0
 --checkpoints_dir
@@ -44,7 +44,6 @@ AtoB
 256
 --preprocess
 resize_and_crop
---no_flip
 --display_winsize
 256
 --epoch
@@ -53,7 +52,7 @@ latest
 0
 --verbose
 --wandb_project_name
-default_sidewalk_pix2pix
+sidewalk_pix2pix_flip
 --display_freq
 400
 --display_ncols
@@ -75,6 +74,7 @@ main
 --save_epoch_freq
 5
 --save_by_iter
+--continue_train
 --epoch_count
 1
 --phase
