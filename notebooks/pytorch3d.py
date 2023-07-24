@@ -1,0 +1,1 @@
+from pytorch3d.renderer import compositing

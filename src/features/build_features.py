@@ -211,7 +211,7 @@ class FormatFolder():
             return img_agg
         
     # define a function to check the file validity and save to the new folders
-    def check_and_save(self, df, train_test, model):
+    def check_and_save(self, df, train_test, model, panorama = True):
         # get IDs
             panoid = df["panoid"]
             mly_id = df["mly_id"]
@@ -226,8 +226,12 @@ class FormatFolder():
                 # load mly image
                 mly_image = cv2.imread(os.path.join(self.mly_folder,"image", str(int(mly_id)) + ".jpg"))
                 if mly_image is not None:
-                    # stitch gsv perspective images
-                    gsv_image = self.stitch_gsv(panoid)
+                    if panorama:
+                        # stitch gsv perspective images
+                        gsv_image = self.stitch_gsv(panoid)
+                    else:
+                        # load gsv image
+                        gsv_image = cv2.imread(os.path.join(self.gsv_folder,"image/perspective", panoid + "_Direction_0_FOV_90_aspect_9--16_raw.png"))
                     # save images if they are not empty
                     if gsv_image is not None:
                         # resize images to their average sizes
@@ -242,7 +246,7 @@ class FormatFolder():
                             cv2.imwrite(os.path.join(self.new_folder, model+"_init", "B", train_test, str(int(mly_id))+".jpg"), mly_resized) 
                             cv2.imwrite(os.path.join(self.new_folder, model+"_init", "A", train_test, str(int(mly_id))+".jpg"), gsv_resized)
                             
-    def create_new_folder(self, random_state = 42, model = "cyclegan", test_size = 0.1):
+    def create_new_folder(self, random_state = 42, model = "cyclegan", test_size = 0.1, panorama = True):
         """create following directories: 
             - trainA: mly
             - trainB: gsv
@@ -276,14 +280,15 @@ class FormatFolder():
             # apply check_and_save to df
             tqdm.tqdm.pandas()
             if df is not None:
-                df.progress_apply(self.check_and_save, args=(train_test, model), axis=1)
+                df.progress_apply(self.check_and_save, args=(train_test, model, panorama), axis=1)
             
     def prepare_pix2pix(self,model):
         fold_A = os.path.join(self.new_folder,model+"_init","A")
         fold_B = os.path.join(self.new_folder,model+"_init","B")
         subprocess.Popen([f"python src/models/pytorch-CycleGAN-and-pix2pix/datasets/combine_A_and_B.py --fold_A {fold_A} --fold_B {fold_B} --fold_AB {os.path.join(self.new_folder,model)} --no_multiprocessing"],
                         shell=True)
-        pass
+
+
 if __name__ == '__main__':
     ssl._create_default_https_context = ssl._create_unverified_context
     root_dir = "/Volumes/ExFAT/road_shoulder_gan"
@@ -300,4 +305,7 @@ if __name__ == '__main__':
         format_folder = FormatFolder(gsv_folder, mly_folder, new_folder)
         format_folder.create_new_folder(model = "cyclegan_filtered")
         format_folder.create_new_folder(model = "pix2pix_filtered")
+        format_folder.create_new_folder(model = "cyclegan_filtered_perspective", panorama = False)
+        format_folder.create_new_folder(model = "pix2pix_filtered_perspective", panorama = False)
         format_folder.prepare_pix2pix("pix2pix_filtered")
+        format_folder.prepare_pix2pix("pix2pix_filtered_perspective")

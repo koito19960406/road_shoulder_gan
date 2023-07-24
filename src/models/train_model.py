@@ -1,6 +1,7 @@
 import subprocess
 import os 
 from pathlib import Path
+import shutil
 
 class Trainer:
     """class to run shell script to train GAN models
@@ -59,5 +60,8 @@ if __name__ == '__main__':
         
         trainer = Trainer(str(train_script), str(args_file))
         trainer.train()
+
+        # Use the shutil.move() function to move the file
+        shutil.move(args_file, args_file.parent / "done" / args_file.name)
 
     print("Done!")

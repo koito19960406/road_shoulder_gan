@@ -179,11 +179,19 @@ class CycleGANModel(BaseModel):
         # Backward cycle loss || G_A(G_B(B)) - B||
         self.loss_cycle_B = self.criterionCycle(self.rec_B, self.real_B) * lambda_B
         # prepare input for mIoU calculation
+        # for A
+        real_A_mIoU = self.real_A.add(1).div(2) # shift the value range of -1 and 1 to 0 and 1
+        fake_A_mIoU = self.fake_A.add(1).div(2)
+        real_A_mIoU = [image for image in real_A_mIoU] # convert to a list of tensors for segmentation
+        fake_A_mIoU = [image for image in fake_A_mIoU]
+        loss_G_mIoU_A = self.mIoU_metric(real_A_mIoU, fake_A_mIoU) * self.opt.lambda_mIoU # compute mIoU
+        # for B
         real_B_mIoU = self.real_B.add(1).div(2) # shift the value range of -1 and 1 to 0 and 1
         fake_B_mIoU = self.fake_B.add(1).div(2) 
         real_B_mIoU = [image for image in real_B_mIoU] # convert to a list of tensors for segmentation
         fake_B_mIoU = [image for image in fake_B_mIoU]
-        self.loss_G_mIoU = self.mIoU_metric(real_B_mIoU, fake_B_mIoU) * self.opt.lambda_mIoU # compute mIoU
+        loss_G_mIoU_B = self.mIoU_metric(real_B_mIoU, fake_B_mIoU) * self.opt.lambda_mIoU # compute mIoU
+        self.loss_G_mIoU = loss_G_mIoU_A + loss_G_mIoU_B / 2 # average mIoU for A and B
         # combined loss and calculate gradients
         self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B + self.loss_G_mIoU
         self.loss_G.backward()
