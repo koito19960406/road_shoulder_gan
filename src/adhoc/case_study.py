@@ -7,7 +7,10 @@ from matplotlib_scalebar.scalebar import ScaleBar
 import contextily as ctx
 import glob
 import tqdm
+from zensvi.cv import Segmenter
+from zensvi.download import MLYDownloader, GSVDownloader
 
+from src.models.utils import move_results, CorrelationAnalysis
 from src.data.retrieve_svi import Downloader
 from src.features.build_features import FilterImage, FormatFolder
 from src.models.segmentation import segmentation
@@ -42,11 +45,7 @@ class CaseStudy:
         # self.convert_to_poly()
         # init downloader for images
         downloader = Downloader(self.case_study_dir_raw, MLY_ACCESS_TOKEN)
-        bbox = self.convert_to_bbox()
-        downloader.get_mly_image_id(bbox, ORGANIZATION_ID)
-        downloader.get_mly_url()
-        downloader.download_mly_image()
-        downloader.get_gsv_metadata_multiprocessing()
+        downloader.download_mly(self.input_gdf)
         downloader.calc_dist()
         downloader.download_gsv()
         downloader.transform_pano_to_perspective()
@@ -57,23 +56,29 @@ class CaseStudy:
         filter_image = FilterImage(pretrained_model_folder, gsv_folder, mly_folder)
         filter_image.run_all()
         for name in self.names:
-            gan_folder = os.path.join(self.case_study_dir_processed,name)
-            format_folder = FormatFolder(gsv_folder, mly_folder, gan_folder)
-            format_folder.create_new_folder(model = name, test_size = 1)
+            if "cyclegan" in name:
+                model_name = "cyclegan"
             if "pix2pix" in name:
-                format_folder.prepare_pix2pix(name)
+                model_name = "pix2pix"
+            gan_folder = os.path.join(self.case_study_dir_processed,"images")
+            format_folder = FormatFolder(gsv_folder, mly_folder, gan_folder)
+            format_folder.create_new_folder(model = model_name, test_size = 1)
+            if "pix2pix" in name:
+                format_folder.prepare_pix2pix(model_name)
     
     def predict(self):
         for name in self.names:
             if "cyclegan" in name:
                 num_test = len(glob.glob(os.path.join(self.case_study_dir_processed,name, name, "testA/*.jpg")))
                 model = "cycle_gan"
+                model_name = "cyclegan"
             elif "pix2pix" in name:
                 num_test = len(glob.glob(os.path.join(self.case_study_dir_processed,name, name, "test/*.jpg")))
                 model = "pix2pix"
+                model_name = "pix2pix"
             else:
                 num_test = 50  
-            predictor = Predictor(os.path.join(self.case_study_dir_processed,name,name), 
+            predictor = Predictor(os.path.join(self.case_study_dir_processed,"images",model_name), 
                             os.path.join(self.root_dir,"models"), 
                             os.path.join(self.case_study_dir_processed, f"{name}/results"),
                             name, model, num_test)
@@ -84,7 +89,7 @@ class CaseStudy:
             result_folder = os.path.join(self.case_study_dir_processed, f"{name}/results/{name}/test_latest/images")
             new_folder = os.path.join(self.case_study_dir_processed, f"{name}/gan_results")
             if not os.path.exists(new_folder):
-                segmentation.move_results(result_folder, new_folder)
+                move_results(result_folder, new_folder)
             # segment input (mly and gsv) and output (fake) 
             if "pix2pix" in name:
                 mly_input_folder = os.path.join(self.case_study_dir_processed,f"{name}/{name}_init/B/test") 
@@ -102,14 +107,20 @@ class CaseStudy:
                     img_type = os.path.basename(input_folder)
                 img_output_folder = os.path.join(self.case_study_dir_interim, "segmented",name,img_type)
                 csv_output_folder = os.path.join(self.case_study_dir_processed, name,"segmentation_result",img_type)
-                img_seg = segmentation.ImageSegmentationSimple(input_folder, img_output_folder, csv_output_folder)
-                img_seg.segment_svi(batch_size_store=100)
-                img_seg.calculate_ratio()
+                # initialize the segmenter
+                segmenter  = Segmenter()
+                pixel_ratio_save_format = ["csv"]
+                segmenter.segment(img_output_folder, 
+                                dir_pixel_ratio_output = csv_output_folder,
+                                pixel_ratio_save_format = pixel_ratio_save_format)
+                # img_seg = segmentation.ImageSegmentationSimple(input_folder, img_output_folder, csv_output_folder)
+                # img_seg.segment_svi(batch_size_store=100)
+                # img_seg.calculate_ratio()
             gsv_result_csv = os.path.join(self.case_study_dir_processed,name,"segmentation_result/testA/segmentation_pixel_ratio_wide.csv")
             mly_result_csv = os.path.join(self.case_study_dir_processed,name,"segmentation_result/testB/segmentation_pixel_ratio_wide.csv")
             gan_result_csv = os.path.join(self.case_study_dir_processed,name,"segmentation_result/gan_results/segmentation_pixel_ratio_wide.csv")
             output_folder = os.path.join(self.case_study_dir_processed,name,"segmentation_result")
-            correlation_analysis = segmentation.CorrelationAnalysis(gsv_result_csv, mly_result_csv, gan_result_csv, output_folder)
+            correlation_analysis = CorrelationAnalysis(gsv_result_csv, mly_result_csv, gan_result_csv, output_folder)
             correlation_analysis.merge_save()
 
     def spatial_join(self):
@@ -172,12 +183,15 @@ if __name__ == '__main__':
     case_study_name = "pasir_panjang_road"
     MLY_ACCESS_TOKEN = os.getenv('MLY_ACCESS_TOKEN')
     ORGANIZATION_ID = [int(os.getenv('ORGANIZATION_ID'))]
-    test = gpd.read_file(os.path.join(root_dir, "data/external/pasir_panjang_rd_filtered.geojson")).set_crs(epsg=4326)
-    case_study = CaseStudy(root_dir, case_study_name, test, names = ["pix2pix_filtered"])
-    # case_study.download_images(MLY_ACCESS_TOKEN, ORGANIZATION_ID)
-    # pretrained_model_folder = os.path.join(root_dir,"data/external")
-    # case_study.prepare_images(pretrained_model_folder)
-    # case_study.predict()
-    # case_study.segment()
+    input_geojson = os.path.join(root_dir, "data/external/pasir_panjang_rd_filtered.geojson")
+    # test = gpd.read_file(input_geojson).set_crs(epsg=4326)
+    # get names list by getting a list of files in configs/done and remove train_ and .txt
+    names = [os.path.basename(file).replace("train_","").replace(".txt","") for file in glob.glob(os.path.join(root_dir,"configs/done/*.txt"))]
+    case_study = CaseStudy(root_dir, case_study_name, input_geojson, names = names)
+    case_study.download_images(MLY_ACCESS_TOKEN, ORGANIZATION_ID)
+    pretrained_model_folder = os.path.join(root_dir,"data/external")
+    case_study.prepare_images(pretrained_model_folder)
+    case_study.predict()
+    case_study.segment()
     case_study.spatial_join()
-    # case_study.plot("reports/figures")
+    case_study.plot("reports/figures")
