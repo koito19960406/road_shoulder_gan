@@ -2,9 +2,9 @@ import os
 import dotenv
 import pandas as pd
 import geopandas as gpd
-import matplotlib.pyplot as plt
-from matplotlib_scalebar.scalebar import ScaleBar
-import contextily as ctx
+# import matplotlib.pyplot as plt
+# from matplotlib_scalebar.scalebar import ScaleBar
+# import contextily as ctx
 import glob
 import tqdm
 from zensvi.cv import Segmenter
@@ -13,7 +13,7 @@ from zensvi.download import MLYDownloader, GSVDownloader
 from src.models.utils import move_results, CorrelationAnalysis
 from src.data.retrieve_svi import Downloader
 from src.features.build_features import FilterImage, FormatFolder
-from src.models.segmentation import segmentation
+# from src.models.segmentation import segmentation
 from src.models.predict_model import Predictor
 
 class CaseStudy:
@@ -56,26 +56,37 @@ class CaseStudy:
         filter_image = FilterImage(pretrained_model_folder, gsv_folder, mly_folder)
         filter_image.run_all()
         for name in self.names:
+            if "perspective" in name:
+                perspective = "_perspective"
+            else: 
+                perspective = ""
             if "cyclegan" in name:
-                model_name = "cyclegan"
+                model_name = "cyclegan" + perspective
             if "pix2pix" in name:
-                model_name = "pix2pix"
+                model_name = "pix2pix" + perspective
             gan_folder = os.path.join(self.case_study_dir_processed,"images")
             format_folder = FormatFolder(gsv_folder, mly_folder, gan_folder)
-            format_folder.create_new_folder(model = model_name, test_size = 1)
+            if "perspective" in name:
+                format_folder.create_new_folder(model = model_name, test_size = 1, panorama=False)
+            else:
+                format_folder.create_new_folder(model = model_name, test_size = 1)
             if "pix2pix" in name:
                 format_folder.prepare_pix2pix(model_name)
     
     def predict(self):
         for name in self.names:
+            if "perspective" in name:
+                perspective = "_perspective"
+            else: 
+                perspective = ""
             if "cyclegan" in name:
                 num_test = len(glob.glob(os.path.join(self.case_study_dir_processed,name, name, "testA/*.jpg")))
                 model = "cycle_gan"
-                model_name = "cyclegan"
+                model_name = "cyclegan" + perspective
             elif "pix2pix" in name:
                 num_test = len(glob.glob(os.path.join(self.case_study_dir_processed,name, name, "test/*.jpg")))
                 model = "pix2pix"
-                model_name = "pix2pix"
+                model_name = "pix2pix" + perspective
             else:
                 num_test = 50  
             predictor = Predictor(os.path.join(self.case_study_dir_processed,"images",model_name), 
@@ -92,11 +103,19 @@ class CaseStudy:
                 move_results(result_folder, new_folder)
             # segment input (mly and gsv) and output (fake) 
             if "pix2pix" in name:
-                mly_input_folder = os.path.join(self.case_study_dir_processed,f"{name}/{name}_init/B/test") 
-                gsv_input_folder = os.path.join(self.case_study_dir_processed,f"{name}/{name}_init/A/test") 
+                if "perspective" in name:
+                    mly_input_folder = os.path.join(self.case_study_dir_processed,"pix2pix_perspective/pix2pix_perspective_init/B/test") 
+                    gsv_input_folder = os.path.join(self.case_study_dir_processed,"pix2pix_perspective/pix2pix_perspective_init/A/test")
+                else:
+                    mly_input_folder = os.path.join(self.case_study_dir_processed,"pix2pix/pix2pix_init/B/test") 
+                    gsv_input_folder = os.path.join(self.case_study_dir_processed,"pix2pix/pix2pix_init/A/test")
             if "cyclegan" in name:
-                mly_input_folder = os.path.join(self.case_study_dir_processed,f"{name}/{name}/testB") 
-                gsv_input_folder = os.path.join(self.case_study_dir_processed,f"{name}/{name}/testA") 
+                if "perspective" in name:
+                    mly_input_folder = os.path.join(self.case_study_dir_processed,"cyclegan_perspective/cyclegan_perspective_init/B/test")
+                    gsv_input_folder = os.path.join(self.case_study_dir_processed,"cyclegan_perspective/cyclegan_perspective_init/A/test")
+                else:
+                    mly_input_folder = os.path.join(self.case_study_dir_processed,"cyclegan/cyclegan_init/B/test")
+                    gsv_input_folder = os.path.join(self.case_study_dir_processed,"cyclegan/cyclegan_init/A/test")
             for input_folder in [new_folder, mly_input_folder, gsv_input_folder]:
                 # we need to use this gimmick here to set img_type
                 #TODO create a separate test dataset with standardized folder names
@@ -179,7 +198,13 @@ if __name__ == '__main__':
     dotenv.load_dotenv(dotenv.find_dotenv())
     root_dir = os.getenv('ROOT_DIR')
     if not os.path.exists(root_dir):
-        root_dir = os.getenv('ROOT_DIR_2')
+        # list of drives from D to Z
+        drives = [f"{chr(x)}:/" for x in range(ord('D'), ord('Z') + 1)] + ["/Volumes/ExFAT/"] 
+        for drive in drives:
+            # check if the root_dir exists
+            if os.path.exists(os.path.join(drive,"road_shoulder_gan")):
+                root_dir = os.path.join(drive,"road_shoulder_gan")
+                break
     case_study_name = "pasir_panjang_road"
     MLY_ACCESS_TOKEN = os.getenv('MLY_ACCESS_TOKEN')
     ORGANIZATION_ID = [int(os.getenv('ORGANIZATION_ID'))]
@@ -194,4 +219,4 @@ if __name__ == '__main__':
     case_study.predict()
     case_study.segment()
     case_study.spatial_join()
-    case_study.plot("reports/figures")
+    # case_study.plot("reports/figures")

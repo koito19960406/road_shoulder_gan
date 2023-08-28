@@ -176,7 +176,6 @@ class FilterImage:
     def run_all(self):
         self.segment_svi()
         self.classify_svi()
-        self.get_latest_gsv_only()
         self.filter_with_cv_result()
         
 class FormatFolder():

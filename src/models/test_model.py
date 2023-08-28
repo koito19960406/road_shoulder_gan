@@ -3,8 +3,13 @@ import os
 from pathlib import Path
 import os
 import pandas as pd
-import pandas as pd
 from tabulate import tabulate
+import glob
+import shutil
+import tqdm
+from zensvi.cv import Segmenter
+
+from src.models.utils import move_results, CorrelationAnalysis
 
 class Tester:
     """class to run shell script to test GAN models
@@ -72,51 +77,117 @@ def pool_images(data_path, model_path, output_path):
         data_path (_type_): _description_
         model_path (_type_): _description_
         output_path (_type_): _description_
-    """
-    # get a list of ids in one of the folders
+    """    
+    for platform in ["sidewalk", "road_shoulder"]:
+        # get a list of ids in one of the folders
+        processed_path = data_path / 'processed' / platform
+        # list directories in processed_path and check if the name contains 'cyclegan' (because they have an easier structure)
+        model_data_folder = [x for x in processed_path.iterdir() if x.is_dir() and "cyclegan_filtered" in x.name][0]
+        # get a list of ids in the folder testA
+        img_id_list = [str(x.stem).replace(".jpg", "") for x in (model_data_folder / 'testA').iterdir()]
+        # loop through img_id_list and find all the files with the same id in all the folders
+        for img_id in tqdm.tqdm(img_id_list):
+            # make output_path if it doesn't exist
+            (output_path / platform / img_id).mkdir(parents=True, exist_ok=True)
+            # get real image of GSV panorama, GSV perspective and Mapillary
+            real_gsv_pano = processed_path / "cyclegan_filtered" / "testA" / f"{img_id}.jpg"
+            real_gsv_persepctive = processed_path / "cyclegan_filtered_perspective" / "testA" / f"{img_id}.jpg"
+            real_mly = processed_path / "cyclegan_filtered" / "testB" / f"{img_id}.jpg"
+            # find all the fake_B images with the same id in model_path that start with platform name and in test_latest\images with glob
+            # for example, E:\road_shoulder_gan\models\road_shoulder_cyclegan_perspective\test_latest\images\0000000000_fake_B.png
+            fake_mly_list = glob.glob(str(model_path / f"{platform}_*" / "test_latest" / "images" / f"{img_id}_fake_B.png"))
+            # save real_gsv_pano, real_gsv_persepctive, real_mly and fake_mly_list to output_path in each id's unique folder
+            shutil.copy2(real_gsv_pano, output_path / img_id / "real_gsv_pano.jpg")
+            shutil.copy2(real_gsv_persepctive, output_path / img_id / "real_gsv_persepctive.jpg")
+            shutil.copy2(real_mly, output_path / img_id / "real_mly.jpg")
+            for fake_mly in fake_mly_list:
+                # use the model name to name the fake mly image 
+                # for example, E:\road_shoulder_gan\models\road_shoulder_cyclegan_perspective\test_latest\images\0000000000_fake_B.png should be named cycle_gan_perspective_fake_mly.jpg
+                model_name = fake_mly.split("\\")[-4]
+                shutil.copy2(fake_mly, output_path / img_id / f"{model_name}_fake_mly.jpg")
+                
+def segment(data_path, model_path):
     processed_path = data_path / 'processed'
-    # list directories in processed_path and check if the name contains 'cyclegan' (because they have an easier structure)
-    model_data_folder = [x for x in processed_path.iterdir() if x.is_dir() and "cyclegan" in x.name][0]
-    # get a list of ids in the folder testA
-    img_id_list = [str(x.stem).replace(".jpg", "") for x in (model_data_folder / 'testA').iterdir()]
-    # loop through processed_path again and make a dictionary of all the images in all model folders
-    for model_name in processed_path.iterdir():
-        if model_name.is_dir():
-            # get a list of all the images in the model folder
-            model_img_list = [x for x in model_name.iterdir() if x.is_file() and x.suffix == '.jpg']
-            # loop through the list and copy the images to the output folder
-            for img in model_img_list:
-                # get the id of the image
-                img_id = str(img.stem).replace(".jpg", "")
-                # check if the id is in the list of ids
-                if img_id in img_id_list:
-                    # copy the image to the output folder
-                    shutil.copy2(img, output_path / f"{model_name.name}_{img.name}")
-    # loop through the id list and copy the images to the model folder
-    for img_id in img_id_list:
-        # get real images of GSV panorama and perspective and Mapillary images
-        
-    
+    interim_path = data_path / 'interim'
+    # list all the folders in model_path
+    names_list = [x.name for x in model_path.iterdir() if x.is_dir()]
+    for name in names_list:
+        result_folder = os.path.join(model_path, f"{name}/test_latest/images")
+        new_folder = os.path.join(processed_path, f"{name}/gan_results")
+        if not os.path.exists(new_folder):
+            move_results(result_folder, new_folder)
+        # segment input (mly and gsv) and output (fake) 
+        if "sidewalk" in name:
+            platform = "sidewalk"
+        else:
+            platform = "road_shoulder"
+        if "pix2pix" in name:
+            if "perspective" in name:
+                mly_input_folder = os.path.join(processed_path,platform,"pix2pix_filtered_perspective_init/B/test") 
+                gsv_input_folder = os.path.join(processed_path,platform,"pix2pix_filtered_perspective_init/A/test")
+            else:
+                mly_input_folder = os.path.join(processed_path,platform,"pix2pix_filtered_init/B/test") 
+                gsv_input_folder = os.path.join(processed_path,platform,"pix2pix_filtered_init/A/test")
+        if "cyclegan" in name:
+            if "perspective" in name:
+                mly_input_folder = os.path.join(processed_path,platform,"cyclegan_filtered_perspective/testB")
+                gsv_input_folder = os.path.join(processed_path,platform,"cyclegan_filtered_perspective/testA")
+            else:
+                mly_input_folder = os.path.join(processed_path,platform, "cyclegan_filtered/testB")
+                gsv_input_folder = os.path.join(processed_path,platform,"cyclegan_filtered/testA")
+        for input_folder in [new_folder, mly_input_folder, gsv_input_folder]:
+            # we need to use this gimmick here to set img_type
+            #TODO create a separate test dataset with standardized folder names
+            basename = os.path.basename(input_folder)
+            if "pix2pix" in name and basename!="gan_results":
+                img_type = "test" + os.path.split(input_folder)[0][-1]
+            else:
+                img_type = os.path.basename(input_folder)
+            img_output_folder = os.path.join(interim_path, "segmented",name,img_type)
+            csv_output_folder = os.path.join(processed_path, name,"segmentation_result",img_type)
+            # initialize the segmenter
+            segmenter  = Segmenter()
+            pixel_ratio_save_format = ["csv"]
+            segmenter.segment(img_output_folder, 
+                            dir_pixel_ratio_output = csv_output_folder,
+                            pixel_ratio_save_format = pixel_ratio_save_format)
+            # img_seg = segmentation.ImageSegmentationSimple(input_folder, img_output_folder, csv_output_folder)
+            # img_seg.segment_svi(batch_size_store=100)
+            # img_seg.calculate_ratio()
+        gsv_result_csv = os.path.join(processed_path,name,"segmentation_result/testA/segmentation_pixel_ratio_wide.csv")
+        mly_result_csv = os.path.join(processed_path,name,"segmentation_result/testB/segmentation_pixel_ratio_wide.csv")
+        gan_result_csv = os.path.join(processed_path,name,"segmentation_result/gan_results/segmentation_pixel_ratio_wide.csv")
+        output_folder = os.path.join(processed_path,name,"segmentation_result")
+        correlation_analysis = CorrelationAnalysis(gsv_result_csv, mly_result_csv, gan_result_csv, output_folder)
+        correlation_analysis.merge_save()
 
+if __name__ == "__main__":
     # Set relative paths
     script_path_relative = Path("road_shoulder_gan/src/models/pytorch-CycleGAN-and-pix2pix/test.py")
     args_folder_path_relative = Path("road_shoulder_gan/configs")
     models_folder_path_relative = Path("road_shoulder_gan/models")
-
+    data_folder_path_relative = Path("road_shoulder_gan/data")
+    
     test_script = None
     args_folder_path = None
     models_folder_path = None
-
+    # list of drives from D to Z
+    drives = [f"{chr(x)}:/" for x in range(ord('D'), ord('Z') + 1)] + ["/Volumes/ExFAT/"] 
     for drive in drives:
         temp_script_path = Path(drive) / script_path_relative
         temp_args_folder_path = Path(drive) / args_folder_path_relative
         temp_models_folder_path = Path(drive) / models_folder_path_relative
+        temp_data_folder_path = Path(drive) / data_folder_path_relative
+        if (Path(drive) / "road_shoulder_gan").exists():
+            root_dir = Path(drive) / "road_shoulder_gan"
         if temp_script_path.exists():
             test_script = temp_script_path
         if temp_args_folder_path.exists():
             args_folder_path = temp_args_folder_path
         if temp_models_folder_path.exists():
             models_folder_path = temp_models_folder_path
+        if temp_data_folder_path.exists():
+            data_folder_path = temp_data_folder_path
 
     if not test_script or not args_folder_path or not models_folder_path:
         print("Required directories not found in any of the drives.")
@@ -134,3 +205,7 @@ def pool_images(data_path, model_path, output_path):
     # create fid csv
     print("Creating fid tables")
     create_fid_csv(models_folder_path)
+    
+    # pool images
+    print("Pooling images")
+    pool_images(data_folder_path, models_folder_path, root_dir / "reports/images")

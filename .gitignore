@@ -102,3 +102,6 @@ data/external/
 data/interim/
 data/processed/
 data/raw/
+
+# images
+reports/images/

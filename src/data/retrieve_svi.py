@@ -1,4 +1,4 @@
-import mapillary as mly
+# import mapillary as mly
 import requests
 import os
 from multiprocessing import cpu_count
@@ -17,7 +17,7 @@ import logging
 import queue
 import glob
 import tqdm
-from zensvi.download import GSVDownloader
+from zensvi.download import GSVDownloader, MLYDownloader
 from zensvi.transform import ImageTransformer
 
 class Downloader:
@@ -25,7 +25,8 @@ class Downloader:
     """
     def __init__(self, output_folder, MLY_ACCESS_TOKEN):
         # set access token for mapillary
-        mly.interface.set_access_token(MLY_ACCESS_TOKEN)
+        # mly.interface.set_access_token(MLY_ACCESS_TOKEN)
+        self.mly_access_token = MLY_ACCESS_TOKEN
         # set output folders
         self.output_folder = output_folder
         # mapillary
@@ -315,7 +316,18 @@ class Downloader:
                 t = threading.Thread(target=download_files, args=(url, fn,))
                 threads.append(t)
         
-    
+    def download_mly(self, input_gdf):
+        mly_downloader = MLYDownloader(mly_api_key = self.mly_access_token)
+        mly_downloader.download_svi(dir_output = self.mly_output_folder, 
+            input_shp_file=input_gdf)
+        # edit the MLY metadata
+        mly_metadata = pd.read_csv(os.path.join(self.mly_output_folder,"mly_pids.csv"))
+        # rename id to mly_id
+        mly_metadata = mly_metadata.rename(columns={"id":"mly_id"})
+        # only keep the mly_id, lon, and lat and overwrite the original file
+        mly_metadata[["mly_id","lon","lat"]].to_csv(os.path.join(self.mly_output_folder,"mly_pids.csv"),index=False)
+        
+        
     def get_gsv_metadata_multiprocessing(self, update = False):
         """get GSV metadata (e.g., panoids, years, months, etc) for each location and store the result as self.panoids
         """
