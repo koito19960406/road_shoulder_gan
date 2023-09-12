@@ -9,6 +9,7 @@ import glob
 import tqdm
 from zensvi.cv import Segmenter
 from zensvi.download import MLYDownloader, GSVDownloader
+import shutil
 
 from src.models.utils import move_results, CorrelationAnalysis
 from src.data.retrieve_svi import Downloader
@@ -40,21 +41,19 @@ class CaseStudy:
                 'north': input_gdf_dissolved.bounds[3]
                 }
         
-    def download_images(self, MLY_ACCESS_TOKEN, ORGANIZATION_ID):
+    def download_images(self, MLY_ACCESS_TOKEN, org_id_dict):
         # # convert to polygon
         # self.convert_to_poly()
         # init downloader for images
-        downloader = Downloader(self.case_study_dir_raw, MLY_ACCESS_TOKEN)
-        downloader.download_mly(self.input_gdf)
-        downloader.calc_dist()
-        downloader.download_gsv()
-        downloader.transform_pano_to_perspective()
+        for key, value in org_id_dict.items():
+            output_folder = os.path.join(self.case_study_dir_raw, key)
+            downloader = Downloader(output_folder, MLY_ACCESS_TOKEN, value)
+            downloader.download_mly(self.input_gdf)
+            downloader.download_gsv(self.input_gdf)
+            downloader.calc_dist()
+            downloader.transform_pano_to_perspective()
     
     def prepare_images(self, pretrained_model_folder):
-        gsv_folder = os.path.join(self.case_study_dir_raw,"gsv")
-        mly_folder = os.path.join(self.case_study_dir_raw,"mapillary")
-        filter_image = FilterImage(pretrained_model_folder, gsv_folder, mly_folder)
-        filter_image.run_all()
         for name in self.names:
             if "perspective" in name:
                 perspective = "_perspective"
@@ -64,7 +63,20 @@ class CaseStudy:
                 model_name = "cyclegan" + perspective
             if "pix2pix" in name:
                 model_name = "pix2pix" + perspective
-            gan_folder = os.path.join(self.case_study_dir_processed,"images")
+            # get platform from name
+            if "road_shoulder" in name:
+                platform = "road_shoulder"
+            if "sidewalk" in name:
+                platform = "sidewalk"
+            
+            # filter data
+            gsv_folder = os.path.join(self.case_study_dir_raw, platform, "gsv")
+            mly_folder = os.path.join(self.case_study_dir_raw, platform, "mapillary")
+            filter_image = FilterImage(pretrained_model_folder, gsv_folder, mly_folder)
+            filter_image.run_all()
+
+            # move data to clean folders
+            gan_folder = os.path.join(self.case_study_dir_processed,"images", platform)
             format_folder = FormatFolder(gsv_folder, mly_folder, gan_folder)
             if "perspective" in name:
                 format_folder.create_new_folder(model = model_name, test_size = 1, panorama=False)
@@ -79,43 +91,57 @@ class CaseStudy:
                 perspective = "_perspective"
             else: 
                 perspective = ""
+            # get platform from name
+            if "road_shoulder" in name:
+                platform = "road_shoulder"
+            if "sidewalk" in name:
+                platform = "sidewalk"
             if "cyclegan" in name:
-                num_test = len(glob.glob(os.path.join(self.case_study_dir_processed,name, name, "testA/*.jpg")))
                 model = "cycle_gan"
                 model_name = "cyclegan" + perspective
+                num_test = len(glob.glob(os.path.join(self.case_study_dir_processed,"images", platform, model_name, "testA/*.jpg")))
             elif "pix2pix" in name:
-                num_test = len(glob.glob(os.path.join(self.case_study_dir_processed,name, name, "test/*.jpg")))
                 model = "pix2pix"
                 model_name = "pix2pix" + perspective
+                num_test = len(glob.glob(os.path.join(self.case_study_dir_processed,"images", platform, model_name, "test/*.jpg")))
             else:
                 num_test = 50  
             predictor = Predictor(os.path.join(self.case_study_dir_processed,"images",model_name), 
                             os.path.join(self.root_dir,"models"), 
-                            os.path.join(self.case_study_dir_processed, f"{name}/results"),
+                            os.path.join(self.case_study_dir_processed),
                             name, model, num_test)
             predictor.predict()
+        # delete the input images
+        shutil.rmtree(os.path.join(self.case_study_dir_processed,"images", platform, model_name))
         
     def segment(self):
         for name in self.names:
-            result_folder = os.path.join(self.case_study_dir_processed, f"{name}/results/{name}/test_latest/images")
+            result_folder = os.path.join(self.case_study_dir_processed, f"{name}/test_latest/images")
             new_folder = os.path.join(self.case_study_dir_processed, f"{name}/gan_results")
             if not os.path.exists(new_folder):
                 move_results(result_folder, new_folder)
+                # delete the old folder
+                shutil.rmtree(result_folder)
+            # get platform from name
+            if "road_shoulder" in name:
+                platform = "road_shoulder"
+            if "sidewalk" in name:
+                platform = "sidewalk"
             # segment input (mly and gsv) and output (fake) 
             if "pix2pix" in name:
                 if "perspective" in name:
-                    mly_input_folder = os.path.join(self.case_study_dir_processed,"pix2pix_perspective/pix2pix_perspective_init/B/test") 
-                    gsv_input_folder = os.path.join(self.case_study_dir_processed,"pix2pix_perspective/pix2pix_perspective_init/A/test")
+                    mly_input_folder = os.path.join(self.case_study_dir_processed,"images", platform,"pix2pix_perspective_init/B/test") 
+                    gsv_input_folder = os.path.join(self.case_study_dir_processed,"images", platform,"pix2pix_perspective_init/A/test")
                 else:
-                    mly_input_folder = os.path.join(self.case_study_dir_processed,"pix2pix/pix2pix_init/B/test") 
-                    gsv_input_folder = os.path.join(self.case_study_dir_processed,"pix2pix/pix2pix_init/A/test")
+                    mly_input_folder = os.path.join(self.case_study_dir_processed,"images", platform,"pix2pix_init/B/test") 
+                    gsv_input_folder = os.path.join(self.case_study_dir_processed,"images", platform,"pix2pix_init/A/test")
             if "cyclegan" in name:
                 if "perspective" in name:
-                    mly_input_folder = os.path.join(self.case_study_dir_processed,"cyclegan_perspective/cyclegan_perspective_init/B/test")
-                    gsv_input_folder = os.path.join(self.case_study_dir_processed,"cyclegan_perspective/cyclegan_perspective_init/A/test")
+                    mly_input_folder = os.path.join(self.case_study_dir_processed,"images", platform,"cyclegan_perspective/testB")
+                    gsv_input_folder = os.path.join(self.case_study_dir_processed,"images", platform,"cyclegan_perspective/testA")
                 else:
-                    mly_input_folder = os.path.join(self.case_study_dir_processed,"cyclegan/cyclegan_init/B/test")
-                    gsv_input_folder = os.path.join(self.case_study_dir_processed,"cyclegan/cyclegan_init/A/test")
+                    mly_input_folder = os.path.join(self.case_study_dir_processed,"images", platform,"cyclegan/testB")
+                    gsv_input_folder = os.path.join(self.case_study_dir_processed,"images", platform,"cyclegan/testA")
             for input_folder in [new_folder, mly_input_folder, gsv_input_folder]:
                 # we need to use this gimmick here to set img_type
                 #TODO create a separate test dataset with standardized folder names
@@ -124,20 +150,21 @@ class CaseStudy:
                     img_type = "test" + os.path.split(input_folder)[0][-1]
                 else:
                     img_type = os.path.basename(input_folder)
-                img_output_folder = os.path.join(self.case_study_dir_interim, "segmented",name,img_type)
-                csv_output_folder = os.path.join(self.case_study_dir_processed, name,"segmentation_result",img_type)
+                img_output_folder = os.path.join(self.case_study_dir_processed, name, "segmented", img_type)
+                csv_output_folder = os.path.join(self.case_study_dir_processed, name, "segmentation_result", img_type)
                 # initialize the segmenter
                 segmenter  = Segmenter()
                 pixel_ratio_save_format = ["csv"]
-                segmenter.segment(img_output_folder, 
-                                dir_pixel_ratio_output = csv_output_folder,
-                                pixel_ratio_save_format = pixel_ratio_save_format)
+                segmenter.segment(input_folder,
+                                # dir_image_output = img_output_folder, 
+                                dir_segmentation_summary_output = csv_output_folder,
+                                pixel_ratio_save_format = pixel_ratio_save_format, csv_format="wide")
                 # img_seg = segmentation.ImageSegmentationSimple(input_folder, img_output_folder, csv_output_folder)
                 # img_seg.segment_svi(batch_size_store=100)
                 # img_seg.calculate_ratio()
-            gsv_result_csv = os.path.join(self.case_study_dir_processed,name,"segmentation_result/testA/segmentation_pixel_ratio_wide.csv")
-            mly_result_csv = os.path.join(self.case_study_dir_processed,name,"segmentation_result/testB/segmentation_pixel_ratio_wide.csv")
-            gan_result_csv = os.path.join(self.case_study_dir_processed,name,"segmentation_result/gan_results/segmentation_pixel_ratio_wide.csv")
+            gsv_result_csv = os.path.join(self.case_study_dir_processed,name,"segmentation_result/testA/pixel_ratios.csv")
+            mly_result_csv = os.path.join(self.case_study_dir_processed,name,"segmentation_result/testB/pixel_ratios.csv")
+            gan_result_csv = os.path.join(self.case_study_dir_processed,name,"segmentation_result/gan_results/pixel_ratios.csv")
             output_folder = os.path.join(self.case_study_dir_processed,name,"segmentation_result")
             correlation_analysis = CorrelationAnalysis(gsv_result_csv, mly_result_csv, gan_result_csv, output_folder)
             correlation_analysis.merge_save()
@@ -146,15 +173,18 @@ class CaseStudy:
         def join_line_point(line,point):
             return gpd.sjoin_nearest(line,point,how="left")
         # load mly points
-        response_gdf = gpd.read_file(os.path.join(self.case_study_dir_raw,"mapillary/metadata/response.geojson"))
+        df = pd.read_csv(os.path.join(self.case_study_dir_raw,"mapillary/mly_pids.csv"))
+        response_gdf = gpd.GeoDataFrame(df,
+                                        geometry=gpd.points_from_xy(df.lon, df.lat),
+                                        crs="EPSG:4326")  # This sets the coordinate reference system to WGS 84
         for name in self.names:
             # load segmentation results
             segmentation_result = pd.read_csv(os.path.join(self.case_study_dir_processed,f"{name}/segmentation_result/segmentation_result.csv"))
             # get geometry and convert to gdf
-            segmentation_result = pd.merge(segmentation_result,response_gdf,left_on="file_name", right_on="id",how="left")
+            segmentation_result = pd.merge(segmentation_result,response_gdf,left_on="filename_key", right_on="id",how="left")
             segmentation_result_gdf = gpd.GeoDataFrame(segmentation_result,geometry='geometry')
             # filter out those outside of 10m buffer
-            buffer_filter=gpd.GeoDataFrame(geometry=self.input_gdf.to_crs(3857).buffer(10)).to_crs(4326)
+            buffer_filter = gpd.read_file(self.input_gdf).set_crs(epsg=4326).to_crs(3857).buffer(10).to_crs(4326)
             buffer_filter['filter_flag']=1
             segmentation_result_gdf=gpd.sjoin(segmentation_result_gdf,buffer_filter,how="left")
             segmentation_result_gdf=segmentation_result_gdf[segmentation_result_gdf['filter_flag']==1]
@@ -208,12 +238,17 @@ if __name__ == '__main__':
     case_study_name = "pasir_panjang_road"
     MLY_ACCESS_TOKEN = os.getenv('MLY_ACCESS_TOKEN')
     ORGANIZATION_ID = [int(os.getenv('ORGANIZATION_ID'))]
+    ORGANIZATION_ID_2 = [int(os.getenv('ORGANIZATION_ID_2'))]
+    org_id_dict = {
+        "road_shoulder": ORGANIZATION_ID,
+        "sidewalk": ORGANIZATION_ID_2
+    }
     input_geojson = os.path.join(root_dir, "data/external/pasir_panjang_rd_filtered.geojson")
     # test = gpd.read_file(input_geojson).set_crs(epsg=4326)
     # get names list by getting a list of files in configs/done and remove train_ and .txt
     names = [os.path.basename(file).replace("train_","").replace(".txt","") for file in glob.glob(os.path.join(root_dir,"configs/done/*.txt"))]
     case_study = CaseStudy(root_dir, case_study_name, input_geojson, names = names)
-    case_study.download_images(MLY_ACCESS_TOKEN, ORGANIZATION_ID)
+    case_study.download_images(MLY_ACCESS_TOKEN, org_id_dict)
     pretrained_model_folder = os.path.join(root_dir,"data/external")
     case_study.prepare_images(pretrained_model_folder)
     case_study.predict()
