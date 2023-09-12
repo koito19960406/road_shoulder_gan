@@ -4,8 +4,7 @@ import re
 import seaborn as sn
 import pandas as pd
 import sys
-sys.path.append('src/models/')
-from segmentation.color_maps import cityscapes
+from plotnine import ggplot, aes, geom_tile, scale_fill_gradient, theme, element_text
 
 class TrainHistoryVisualizer:
     def __init__(self,root_dir):
@@ -154,23 +153,60 @@ class SegCorrVisualizer:
                 fig.tight_layout()
                 plt.savefig(os.path.join(self.output_file, f"segmentation_correlation_matrix_{label.name}.pdf"))
                 plt.clf()
+
+# class SegCorrVisualizer:
+#     """class to visualize correlation matrix of segmentation results using ggplot
+#     """
+    
+#     def __init__(self, input_file, output_file):
+#         self.input_file = input_file
+#         self.output_file = output_file
+        
+#     def plot(self):
+#         # read csv and retain all the columns except for pid col (first col)
+#         df = pd.read_csv(self.input_file).iloc[:,1:]
+#         # get unique list of column names that contain either one of "gsv_", "mly_", "gan_" and replace them with empty string
+#         unique_col_names = [re.sub(r"(gsv_|mly_|gan_)","",col) for col in df.columns if re.search(r"(gsv_|mly_|gan_)",col)]
+#         for label in unique_col_names:
+#             df_filtered = df.filter(regex=label)
+#             if len(df_filtered.columns) > 0:
+#                 corrMatrix = df_filtered.corr()
+                
+#                 # Melt the correlation matrix for ggplot
+#                 corr_melted = corrMatrix.reset_index().melt(id_vars='index')
+#                 corr_melted.columns = ['x', 'y', 'value']
+                
+#                 # Plot using ggplot
+#                 p = (ggplot(corr_melted, aes(x='x', y='y', fill='value')) +
+#                      geom_tile() +
+#                      scale_fill_gradient(low="white", high="blue") +
+#                      theme(axis_text_x=element_text(rotation=90, size=10),
+#                            axis_text_y=element_text(size=10)))
+                
+#                 # Save the plot
+#                 p.save(os.path.join(self.output_file, f"segmentation_correlation_matrix_{label}.png"))
+
         
 if __name__ == '__main__':
-    root_dir = "/Volumes/ExFAT 1/road_shoulder_gan"
+    root_dir = "./"
+    drives = [f"{chr(x)}:/" for x in range(ord('D'), ord('Z') + 1)] + ["/Volumes/ExFAT/"]
+    for drive in drives:
+        if os.path.exists(os.path.join(drive,"road_shoulder_gan")):
+            root_dir = os.path.join(drive,"road_shoulder_gan")
+            break
     # train loss plot
     for experiment_name in os.listdir(os.path.join(root_dir,"models")):
         if not experiment_name.startswith('.'):  
-            visualizer = TrainHistoryVisualizer(root_dir)
-            if "cyclegan" in experiment_name:
-                visualizer.cyclegan_generate_stats_from_log(experiment_name, line_interval=10, nb_data=3473)
-            if "pix2pix" in experiment_name:
-                visualizer.pix2pix_generate_stats_from_log(experiment_name, line_interval=10, nb_data=3473)
+            # visualizer = TrainHistoryVisualizer(root_dir)
+            # if "cyclegan" in experiment_name:
+            #     visualizer.cyclegan_generate_stats_from_log(experiment_name, line_interval=10, nb_data=3473)
+            # if "pix2pix" in experiment_name:
+            #     visualizer.pix2pix_generate_stats_from_log(experiment_name, line_interval=10, nb_data=3473)
     
             # segmentation result correlation plot
-            input_file = os.path.join(root_dir, "data/processed",experiment_name,"segmentation_result/segmentation_result.csv")
+            input_file = os.path.join(root_dir, "models",experiment_name,"segmentation_result/segmentation_result.csv")
             output_folder = f"./reports/figures/{experiment_name}"
-            label_list = cityscapes.create_cityscapes_label_colormap()
-            segcorr = SegCorrVisualizer(input_file, output_folder, label_list)
+            segcorr = SegCorrVisualizer(input_file, output_folder)
             try:
                 segcorr.plot()
             except Exception as e:

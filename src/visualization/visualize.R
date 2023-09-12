@@ -209,18 +209,101 @@ pix2pix_generate_stats_from_log <- function(root_dir, experiment_name, line_inte
   ggsave(filename = det_train_loss_filepath, plot = p, width = 10, height = 3)
 }
 
-# define necessary parameters
-load_dot_env()
-root_dir <- Sys.getenv("ROOT_DIR")
-experiment_name_list <- list.dirs(path = paste0(root_dir, "/models/"), full.names = FALSE, recursive = FALSE)
-for (experiment_name in experiment_name_list){
-  if (str_detect(experiment_name, "cyclegan")){
-    print(experiment_name)
-    cyclegan_generate_stats_from_log(root_dir, experiment_name, line_interval = 50)
-  }
-  else if (str_detect(experiment_name, "pix2pix")){
-    print(experiment_name)
-    pix2pix_generate_stats_from_log(root_dir, experiment_name, line_interval = 50)
+
+seg_corr_visualizer <- function(input_file, output_file) {
+  
+  # Read csv and retain all the columns except for pid col (first col)
+  df <- read_csv(input_file) %>%
+    dplyr::select(-1)
+  
+  # Get unique list of column names that contain either one of "gsv_", "mly_", "gan_" and replace them with empty string
+  # get column names that contain either one of "gsv_", "mly_", "gan_"
+  unique_col_names <- df %>%
+    select(matches("^(gsv_|mly_|gan_)")) %>%
+    names() %>%
+    na.omit() %>%
+    str_replace_all("(gsv_|mly_|gan_)", "") %>%
+    unique() 
+
+  for (label in unique_col_names) {
+    print(label)
+    df_filtered <- df %>%
+      dplyr::select(contains(label))
+
+if (ncol(df_filtered) > 0) {
+      # Get the correlation matrix
+      corrMatrix <- cor(df_filtered)
+      
+      # Melt the correlation matrix for ggplot
+      corr_melted <- as.data.frame(as.table(corrMatrix))
+      colnames(corr_melted) <- c("x", "y", "value")
+      
+      # Compute the R^2 value for each pair
+      corr_melted$r_squared <- corr_melted$value^2
+      
+      # Plot using ggplot
+      p <- ggplot(corr_melted, aes(x=x, y=y, fill=value)) +
+        geom_tile() +
+        scale_fill_paletteer_c("viridis::inferno") +
+        theme_ipsum() +
+        geom_text(data=subset(corr_melted, r_squared >= 0.9), aes(label=sprintf("%.2f", r_squared)), size=5, color="black", na.rm = TRUE) + 
+        geom_text(data=subset(corr_melted, r_squared < 0.9), aes(label=sprintf("%.2f", r_squared)), size=5, color="white", na.rm = TRUE) +
+        labs(title = "", x = "", y = "") +
+        theme(
+          axis.text.x = element_text(size=14),  # Adjust font size for x-axis tick labels
+          axis.text.y = element_text(size=14),  # Adjust font size for y-axis tick labels
+          legend.text = element_text(size=14),   # Adjust font size for colorbar labels  
+          plot.margin = margin(0, 0, 0, 0)      # Remove all margins
+        )
+
+
+      # Save the plot
+      ggsave(filename = paste(output_file, paste0("segmentation_correlation_matrix_", label, ".png"), sep="/"), plot = p)
+    }
   }
 }
+
+
+# define necessary parameters
+root_dir <- "./"
+
+# Create the list of drives
+drives <- c(paste0(LETTERS[4:26], ":/"), "/Volumes/ExFAT/")
+
+# Loop through the drives and check if the path exists
+for (drive in drives) {
+  if (file.exists(file.path(drive, "road_shoulder_gan"))) {
+    root_dir <- file.path(drive, "road_shoulder_gan")
+    break
+  }
+}
+print(root_dir)
+
+experiment_name_list <- list.dirs(path = paste0(root_dir, "/models/"), full.names = FALSE, recursive = FALSE)
+print(experiment_name_list)
+for (experiment_name in experiment_name_list){
+  print(experiment_name)
+  # if (str_detect(experiment_name, "cyclegan")){
+  #   print(experiment_name)
+  #   cyclegan_generate_stats_from_log(root_dir, experiment_name, line_interval = 50)
+  # }
+  # else if (str_detect(experiment_name, "pix2pix")){
+  #   print(experiment_name)
+  #   pix2pix_generate_stats_from_log(root_dir, experiment_name, line_interval = 50)
+  # }
+  # Segmentation result correlation plot
+  input_file <- file.path(root_dir, "models", experiment_name, "segmentation_result", "segmentation_result.csv")
+  output_folder <- paste0("./reports/figures/", experiment_name)
+
+  # Call the seg_corr_visualizer function
+  tryCatch({
+    seg_corr_visualizer(input_file, output_folder)
+  }, error = function(e) {
+    print(e)
+  })
+}
+
+
+
+
 
