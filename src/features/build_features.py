@@ -284,7 +284,7 @@ class FormatFolder():
     def prepare_pix2pix(self,model):
         fold_A = os.path.join(self.new_folder,model+"_init","A")
         fold_B = os.path.join(self.new_folder,model+"_init","B")
-        subprocess.Popen([f"python src/models/pytorch-CycleGAN-and-pix2pix/datasets/combine_A_and_B.py --fold_A {fold_A} --fold_B {fold_B} --fold_AB {os.path.join(self.new_folder,model)} --no_multiprocessing"],
+        subprocess.run(f"python src/models/pytorch-CycleGAN-and-pix2pix/datasets/combine_A_and_B.py --fold_A {fold_A} --fold_B {fold_B} --fold_AB {os.path.join(self.new_folder,model)} --no_multiprocessing",
                         shell=True)
 
 
