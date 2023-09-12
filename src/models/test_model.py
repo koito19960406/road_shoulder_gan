@@ -88,6 +88,8 @@ def pool_images(data_path, model_path, output_path):
         # loop through img_id_list and find all the files with the same id in all the folders
         for img_id in tqdm.tqdm(img_id_list):
             # make output_path if it doesn't exist
+            if (output_path / platform / img_id).exists():
+                continue 
             (output_path / platform / img_id).mkdir(parents=True, exist_ok=True)
             # get real image of GSV panorama, GSV perspective and Mapillary
             real_gsv_pano = processed_path / "cyclegan_filtered" / "testA" / f"{img_id}.jpg"
@@ -108,12 +110,11 @@ def pool_images(data_path, model_path, output_path):
                 
 def segment(data_path, model_path):
     processed_path = data_path / 'processed'
-    interim_path = data_path / 'interim'
     # list all the folders in model_path
     names_list = [x.name for x in model_path.iterdir() if x.is_dir()]
     for name in names_list:
         result_folder = os.path.join(model_path, f"{name}/test_latest/images")
-        new_folder = os.path.join(processed_path, f"{name}/gan_results")
+        new_folder = os.path.join(model_path, f"{name}/gan_results")
         if not os.path.exists(new_folder):
             move_results(result_folder, new_folder)
         # segment input (mly and gsv) and output (fake) 
@@ -143,21 +144,27 @@ def segment(data_path, model_path):
                 img_type = "test" + os.path.split(input_folder)[0][-1]
             else:
                 img_type = os.path.basename(input_folder)
-            img_output_folder = os.path.join(interim_path, "segmented",name,img_type)
-            csv_output_folder = os.path.join(processed_path, name,"segmentation_result",img_type)
+            #TODO update folder names
+            img_output_folder = os.path.join(model_path, name, "segmented",img_type)
+            csv_output_folder = os.path.join(model_path, name, "segmentation_result",img_type)
+            # create output folders
+            os.makedirs(img_output_folder, exist_ok=True)
+            os.makedirs(csv_output_folder, exist_ok=True)
             # initialize the segmenter
             segmenter  = Segmenter()
             pixel_ratio_save_format = ["csv"]
-            segmenter.segment(img_output_folder, 
-                            dir_pixel_ratio_output = csv_output_folder,
-                            pixel_ratio_save_format = pixel_ratio_save_format)
+            if not os.path.exists(os.path.join(csv_output_folder, "pixel_ratios.csv")):
+                segmenter.segment(input_folder,
+                                dir_image_output = img_output_folder,
+                                dir_segmentation_summary_output = csv_output_folder,
+                                pixel_ratio_save_format = pixel_ratio_save_format)
             # img_seg = segmentation.ImageSegmentationSimple(input_folder, img_output_folder, csv_output_folder)
             # img_seg.segment_svi(batch_size_store=100)
             # img_seg.calculate_ratio()
-        gsv_result_csv = os.path.join(processed_path,name,"segmentation_result/testA/segmentation_pixel_ratio_wide.csv")
-        mly_result_csv = os.path.join(processed_path,name,"segmentation_result/testB/segmentation_pixel_ratio_wide.csv")
-        gan_result_csv = os.path.join(processed_path,name,"segmentation_result/gan_results/segmentation_pixel_ratio_wide.csv")
-        output_folder = os.path.join(processed_path,name,"segmentation_result")
+        gsv_result_csv = os.path.join(model_path, name, "segmentation_result/testA/pixel_ratios.csv")
+        mly_result_csv = os.path.join(model_path, name, "segmentation_result/testB/pixel_ratios.csv")
+        gan_result_csv = os.path.join(model_path, name, "segmentation_result/gan_results/pixel_ratios.csv")
+        output_folder = os.path.join(model_path, name, "segmentation_result")
         correlation_analysis = CorrelationAnalysis(gsv_result_csv, mly_result_csv, gan_result_csv, output_folder)
         correlation_analysis.merge_save()
 
@@ -209,3 +216,7 @@ if __name__ == "__main__":
     # pool images
     print("Pooling images")
     pool_images(data_folder_path, models_folder_path, root_dir / "reports/images")
+
+    # segment images
+    print("Segmenting images")
+    segment(data_folder_path, models_folder_path)
