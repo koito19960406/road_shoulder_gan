@@ -39,7 +39,7 @@ class CorrelationAnalysis:
         """
         result = pd.read_csv(file_path)
         # rename all the cols excepts for the first column, which is pid
-        result.columns = [prefix + colname if i>0 else colname for i, colname in enumerate(result.columns)]
+        result.columns = [colname if "file" in colname else prefix + colname for i, colname in enumerate(result.columns)]
         return result
 
     def merge_save(self):
@@ -50,8 +50,8 @@ class CorrelationAnalysis:
         mly_result = self.load_rename(self.mly_result_csv, "mly_")
         gan_result = self.load_rename(self.gan_result_csv, "gan_")
         # merge
-        merged_result = (gsv_result.merge(mly_result,on=["file_name"],how="left").
-            merge(gan_result,on=["file_name"],how="left")
+        merged_result = (gsv_result.merge(mly_result,on=["filename_key"],how="left").
+            merge(gan_result,on=["filename_key"],how="left")
             )
         # save as csv
         merged_result.to_csv(os.path.join(self.output_folder,"segmentation_result.csv"))
