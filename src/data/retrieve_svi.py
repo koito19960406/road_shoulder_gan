@@ -3,10 +3,10 @@ import requests
 import os
 from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool
-import streetview
+# import streetview
 import pandas as pd
-from src.data.get_img import my_task
-from src.data.perspective.tool import Equirectangular
+# from src.data.get_img import my_task
+# from src.data.perspective.tool import Equirectangular
 import threading
 import cv2
 import numpy as np
@@ -23,10 +23,11 @@ from zensvi.transform import ImageTransformer
 class Downloader:
     """class for downloading images from mapillary
     """
-    def __init__(self, output_folder, MLY_ACCESS_TOKEN):
+    def __init__(self, output_folder, MLY_ACCESS_TOKEN, ORGANIZATION_ID):
         # set access token for mapillary
         # mly.interface.set_access_token(MLY_ACCESS_TOKEN)
         self.mly_access_token = MLY_ACCESS_TOKEN
+        self.organization_id = ORGANIZATION_ID
         # set output folders
         self.output_folder = output_folder
         # mapillary
@@ -317,9 +318,9 @@ class Downloader:
                 threads.append(t)
         
     def download_mly(self, input_gdf):
-        mly_downloader = MLYDownloader(mly_api_key = self.mly_access_token)
+        mly_downloader = MLYDownloader(mly_api_key = self.mly_access_token, max_workers = 4)
         mly_downloader.download_svi(dir_output = self.mly_output_folder, 
-            input_shp_file=input_gdf)
+            input_shp_file=input_gdf, organization_id = self.organization_id, radius = 50)
         # edit the MLY metadata
         mly_metadata = pd.read_csv(os.path.join(self.mly_output_folder,"mly_pids.csv"))
         # rename id to mly_id
@@ -381,10 +382,10 @@ class Downloader:
             print("The output file already exists, please set update to True if you want to update it")
         else:
             # assign gsv_metadata to gsv_metadata
-            gsv_metadata = pd.read_csv(os.path.join(self.gsv_metadata_output_folder, "gsv_metadata.csv"))
+            gsv_metadata = pd.read_csv(os.path.join(self.gsv_image_output_folder, "gsv_pids.csv"))
             # define a function that takes two sets of lat and lon and return distance
             def calc_dist_row(row):
-                dist = distance.distance((row["lat"],row["lon"]), (row["input_lat"],row["input_lon"])).meters
+                dist = distance.distance((row["lat"],row["lon"]), (row["input_latitude"],row["input_longitude"])).meters
                 return dist
             
             gsv_metadata["distance"] = gsv_metadata.apply(lambda row: calc_dist_row(row), axis=1)
@@ -392,7 +393,7 @@ class Downloader:
             # save df_output
             gsv_metadata.to_csv(os.path.join(self.gsv_metadata_output_folder, "gsv_metadata_dist.csv"), index = False)
             
-    def download_gsv(self):
+    def download_gsv(self, input_gdf):
         """function to download gsv svi with multiple threads
         """
         # create output folders
@@ -402,15 +403,17 @@ class Downloader:
         path_pid = os.path.join(self.gsv_metadata_output_folder,"gsv_metadata.csv")
         # set path to the 1st error log csv file
         log_path = os.path.join(self.gsv_metadata_output_folder,"gsv_metadata_error_1.csv")
-            
+        input_csv_file = os.path.join(self.mly_output_folder,"mly_pids.csv")
         downloader = GSVDownloader(log_path=log_path)
-        downloader.download_svi(dir_output=dir_save, path_pid=path_pid)
+        downloader.download_svi(dir_output=dir_save, input_csv_file=input_csv_file, id_columns=["mly_id"])
             
     def transform_pano_to_perspective(self):
         # set and create directories       
         dir_input_raw = os.path.join(self.gsv_image_output_folder,"gsv_panorama")
-        dir_out_show = os.path.join(self.gsv_image_output_folder,"perspective")
+        dir_out_show = os.path.join(self.gsv_image_output_folder)
         os.makedirs(dir_out_show, exist_ok = True)
-
-        transformer = ImageTransformer(dir_input_raw, dir_out_show)
-        transformer.transform_images(style_list=["perspective"])
+        for dirpath, dirnames, filenames in os.walk(dir_input_raw):
+            for dirname in dirnames:
+                dir_input_raw_temp = os.path.join(dirpath, dirname)
+                transformer = ImageTransformer(dir_input_raw_temp, dir_out_show)
+                transformer.transform_images(style_list=["perspective"])
