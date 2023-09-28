@@ -103,5 +103,8 @@ data/interim/
 data/processed/
 data/raw/
 
+# case study
+case_study/
+
 # images
 reports/images/

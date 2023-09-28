@@ -30,7 +30,7 @@ class CorrelationAnalysis:
         self.gan_result_csv = gan_result_csv
         self.output_folder = output_folder
         
-    def load_rename(self, file_path, prefix):
+    def load_rename(self, file_path, suffix):
         """load csv as df and rename col names
 
         Args:
@@ -39,16 +39,16 @@ class CorrelationAnalysis:
         """
         result = pd.read_csv(file_path)
         # rename all the cols excepts for the first column, which is pid
-        result.columns = [colname if "file" in colname else prefix + colname for i, colname in enumerate(result.columns)]
+        result.columns = [colname if "file" in colname else colname + suffix for i, colname in enumerate(result.columns)]
         return result
 
     def merge_save(self):
         """merge and save the results
         """
         # load
-        gsv_result = self.load_rename(self.gsv_result_csv, "gsv_")
-        mly_result = self.load_rename(self.mly_result_csv, "mly_")
-        gan_result = self.load_rename(self.gan_result_csv, "gan_")
+        gsv_result = self.load_rename(self.gsv_result_csv, "_gsv")
+        mly_result = self.load_rename(self.mly_result_csv, "_mly")
+        gan_result = self.load_rename(self.gan_result_csv, "_gan")
         # merge
         merged_result = (gsv_result.merge(mly_result,on=["filename_key"],how="left").
             merge(gan_result,on=["filename_key"],how="left")
