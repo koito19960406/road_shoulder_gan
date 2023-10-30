@@ -226,7 +226,10 @@ map_improvement <- function(line_joined, point_results, category, view, platform
     )
   )
   max_abs_improvement <- 15
-  print(max_abs_improvement)
+  labels_list <- round(seq(-max_abs_improvement, max_abs_improvement, length.out = 5))
+  labels_list[1] <- paste("<", labels_list[1], "%")
+  labels_list[length(labels_list)] <- paste(">", labels_list[length(labels_list)], "%")
+
   # map the sf object
   map <- basemap_ggplot(st_bbox(line_joined), map_service = "carto", map_type = "light_no_labels", alpha = 1) +
     geom_sf(data = line_joined, mapping = aes(color = improvement * 100), linewidth = 1) +
@@ -236,7 +239,7 @@ map_improvement <- function(line_joined, point_results, category, view, platform
       name = paste0("% improvement \n for ", category),
       na.value = "grey50",
       breaks = seq(-max_abs_improvement, max_abs_improvement, length.out = 5),
-      labels = paste0(round(seq(-max_abs_improvement, max_abs_improvement, length.out = 5)), "%"),
+      labels = labels_list,
       guide = guide_colorbar(
         title.position = "top",
         title.hjust = 0,
