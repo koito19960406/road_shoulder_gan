@@ -1,7 +1,7 @@
 pacman::p_load(
   tidyverse, sf, basemaps, dotenv, progress, magrittr, Redmonder,
   hrbrthemes, ggspatial, lwgeom, ggimage, cropcircles, ggrepel, ggridges,
-  paletteer
+  paletteer, magick
 )
 
 
@@ -205,8 +205,8 @@ map_improvement <- function(line_joined, point_results, category, view, platform
       xend_max - distance_for_image
     ),
     y = c(
-      yend_min + 200, # the major label
-      yend_max + 200, # the major label
+      yend_min + 210, # the major label
+      yend_max + 210, # the major label
       yend_min + 150,
       yend_min + 150,
       yend_min + 150,
@@ -217,12 +217,12 @@ map_improvement <- function(line_joined, point_results, category, view, platform
     label = c(
       paste0("Minimum improvement: ", signif(min_diff["improvement"][[1]] * 100, digit = 2), "%"),
       paste0("Maximum improvement: ", signif(max_diff["improvement"][[1]] * 100, digit = 2), "%"),
-      "fake",
-      "real",
-      "Google Street View",
-      "fake",
-      "real",
-      "Google Street View"
+      "Fake",
+      "Real",
+      "Road Center",
+      "Fake",
+      "Real",
+      "Road Center"
     )
   )
   max_abs_improvement <- 15
@@ -289,36 +289,51 @@ map_improvement <- function(line_joined, point_results, category, view, platform
     # geom_image(aes(x=xend_max+distance_for_image, y=yend_max, image = circle_crop("/Users/koichiito/Desktop/test.png")), size = 0.2453) +
     # geom_image(aes(x=xend_min-distance_for_image, y=yend_min, image = circle_crop("/Users/koichiito/Desktop/test.png")), size = 0.2453) +
     # geom_image(aes(x=xend_min+distance_for_image, y=yend_min, image = circle_crop("/Users/koichiito/Desktop/test.png")), size = 0.2453) +
-    geom_spatial_label(mapping = aes(x, y, label = label), data = label_df, crs = 3857) +
+    geom_spatial_label(mapping = aes(x, y, label = label), data = label_df, size = 6, crs = 3857) +
     coord_sf(crs = 3857) +
     labs(
       x = NULL,
       y = NULL,
-      title = paste0("Improvement from Google Street View to \n predicted ", view, " ", str_replace(platform, "_", " "), " view images for ", category),
+      title = paste0("Improvement from road center SVI to \n predicted ", view, " ", str_replace(platform, "_", " "), " SVI for ", category),
       subtitle = NULL,
       caption = NULL
     ) +
     theme_ipsum() +
     theme(
-      plot.title.position = "panel",
-      plot.title = element_text(hjust = 0.5),
+      plot.title = element_text(hjust = 0.5, size = 24),  # Increase the size of the plot title
+      plot.subtitle = element_text(size = 18),  # Increase the size of the plot subtitle
+      plot.caption = element_text(size = 15),  # Increase the size of the plot caption
+      axis.title = element_text(size = 18),  # Increase the size of axis titles
+      axis.text = element_text(size = 16),  # Increase the size of axis text
+      legend.position = c(0.12, 0.5),
+      legend.title = element_text(size = 18, hjust = 0),
+      legend.text = element_text(size = 15),
+      # legend.background = element_rect(fill = "transparent"),  # Make legend background transparent
+      legend.box.margin = margin(0, 0, 0, 0),  # Set legend margin to 0
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
-      plot.margin = grid::unit(c(0, 0, 0, 0), "mm"),
+      plot.margin = margin(0, 0, 0, 0, "pt"),  # Set all margins to 0
       panel.background = element_rect(fill = "transparent", colour = NA),
       axis.text.x = element_blank(), # remove x axis labels
       axis.ticks.x = element_blank(), # remove x axis ticks
       axis.text.y = element_blank(), # remove y axis labels
-      axis.ticks.y = element_blank(), # remove y axis ticks
-      legend.position = c(0.12   , 0.5),
-      legend.title = element_text(size = 18, hjust = 0, margin = margin(r = 20, unit = "pt")),
-      legend.text = element_text(size = 15),
-      # legend.background = element_rect(fill = alpha("white",0.2)),
-      # legend.justification = c("left", "bottom"),
-      # legend.box.just = "left",
-      # legend.margin = margin(6, 6, 6, 6)
+      axis.ticks.y = element_blank() # remove y axis ticks
     )
-  ggsave(plot = map, paste0(output_dir, "/", category, "_improvements_map.png"), width = 8, height = 8)
+  # Define file paths
+  original_file_path <- paste0(output_dir, "/", category, "_improvements_map.png")
+  trimmed_file_path <- paste0(output_dir, "/", category, "_improvements_map_trimmed.png")
+
+  # Save the original plot as a PNG file
+  ggsave(plot = map, original_file_path, width = 8, height = 8, units = "in")
+
+  # Load the saved image using magick
+  image <- image_read(original_file_path)
+
+  # Trim the image (removes the edges that are the same color as the corner pixels)
+  trimmed_image <- image_trim(image)
+
+  # Save the trimmed image
+  image_write(trimmed_image, trimmed_file_path)
 }
 
 for (target_variable in c("building", "sky", "vegetation")) {

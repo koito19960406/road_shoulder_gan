@@ -129,7 +129,18 @@ cyclegan_generate_stats_from_log <- function(root_dir, experiment_name, line_int
 
   p <- p +
     scale_color_manual(values = palette) + # apply color palette
-    theme(legend.position = "right") + # position the legend
+    theme(legend.position = "right",
+          # make the title bigger
+          plot.title = element_text(size = 20),
+          # make the axis labels bigger
+          axis.text.x = element_text(size = 20), 
+          axis.text.y = element_text(size = 20), 
+          # make the axis titles bigger
+          axis.title.x = element_text(size = 20),
+          axis.title.y = element_text(size = 20),
+          # make the legend bigger
+          legend.text = element_text(size = 20)
+    ) + # position the legend
     guides(color = guide_legend(title = "Loss")) # set the title of the legend
   
   # Save the plot
@@ -318,7 +329,7 @@ pix2pix_generate_stats_from_log <- function(root_dir, experiment_name, line_inte
   df <- as.data.frame(dicts)
 
   # replace column names: "D_" -> "Detector ", "G_" -> "Generator
-  names(df) <- str_replace_all(names(df), "D_", "Detector_")
+  names(df) <- str_replace_all(names(df), "D_", "Discriminator_")
   names(df) <- str_replace_all(names(df), "G_", "Generator_")
 
   # get color palette
@@ -335,13 +346,13 @@ pix2pix_generate_stats_from_log <- function(root_dir, experiment_name, line_inte
   # Get the maximum values for generator (i.e., max values of columns with "G_" prefix)
   max_gen_loss <- max(df[, str_detect(names(df), "Generator_")])
   # Get the maximum values for detector (i.e., max values of columns with "D_" prefix)
-  max_det_loss <- max(df[, str_detect(names(df), "Detector_")])
+  max_det_loss <- max(df[, str_detect(names(df), "Discriminator_")])
   # Calculate the scaling factor
   scaling_factor <- max_det_loss / max_gen_loss
   
   # Add generator loss lines
   for (key in names(df)) {
-    condition <- key != "epoch" & !str_detect(key, "Detector_") & (key != "Generator_mIoU" | str_detect(experiment_name, "miou"))
+    condition <- key != "epoch" & !str_detect(key, "Discriminator_") & (key != "Generator_mIoU" | str_detect(experiment_name, "miou"))
     if (condition) {
       p <- p + geom_line(data = df, aes_string(x = "epoch", y = key, color = paste("factor('", key, "')")), size = 0.5)
     }
@@ -349,7 +360,7 @@ pix2pix_generate_stats_from_log <- function(root_dir, experiment_name, line_inte
   
   # Add detector loss lines with secondary y-axis scaling
   for (key in names(df)) {
-    condition <- key != "epoch" & str_detect(key, "Detector_")
+    condition <- key != "epoch" & str_detect(key, "Discriminator_")
     if (condition) {
       p <- p + geom_line(data = df, aes_string(x = "epoch", y = paste(key, "/", scaling_factor), color = paste("factor('", key, "')")), size = 0.5)
     }
@@ -362,7 +373,18 @@ pix2pix_generate_stats_from_log <- function(root_dir, experiment_name, line_inte
       sec.axis = sec_axis(~ . * scaling_factor, name = "Detector Loss")
     ) +
     scale_color_manual(values = palette) +
-    theme(legend.position = "right") +
+    theme(legend.position = "right",
+          # make the title bigger
+          plot.title = element_text(size = 20),
+          # make the axis labels bigger
+          axis.text.x = element_text(size = 20), 
+          axis.text.y = element_text(size = 20), 
+          # make the axis titles bigger
+          axis.title.x = element_text(size = 20),
+          axis.title.y = element_text(size = 20),
+          # make the legend bigger
+          legend.text = element_text(size = 20)
+    ) +
     guides(color = guide_legend(title = "Loss"))
   
   # Save the combined plot
