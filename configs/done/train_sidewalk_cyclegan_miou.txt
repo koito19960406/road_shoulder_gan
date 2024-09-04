@@ -1,0 +1,17 @@
+--dataroot
+data\processed\sidewalk\cyclegan_filtered
+--name
+sidewalk_cyclegan_miou
+--checkpoints_dir
+models
+--model
+cycle_gan
+--dataset_mode
+unaligned
+--wandb_project_name
+sidewalk_cyclegan_miou
+--use_segmentation
+--n_epochs
+50
+--n_epochs_decay
+50

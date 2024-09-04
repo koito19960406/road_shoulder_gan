@@ -1,0 +1,16 @@
+--dataroot
+data\processed\sidewalk\pix2pix_filtered_perspective
+--name
+sidewalk_pix2pix_perspective
+--checkpoints_dir
+models
+--model
+pix2pix
+--dataset_mode
+aligned
+--wandb_project_name
+sidewalk_pix2pix_perspective
+--n_epochs
+50
+--n_epochs_decay
+50

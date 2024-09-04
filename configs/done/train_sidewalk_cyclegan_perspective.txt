@@ -1,0 +1,16 @@
+--dataroot
+data\processed\sidewalk\cyclegan_filtered_perspective
+--name
+sidewalk_cyclegan_perspective
+--checkpoints_dir
+models
+--model
+cycle_gan
+--dataset_mode
+unaligned
+--wandb_project_name
+sidewalk_cyclegan_perspective
+--n_epochs
+50
+--n_epochs_decay
+50

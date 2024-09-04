@@ -1,0 +1,17 @@
+--dataroot
+data\processed\road_shoulder\pix2pix_filtered
+--name
+road_shoulder_pix2pix_miou
+--gpu_ids
+0
+--checkpoints_dir
+models
+--model
+pix2pix
+--wandb_project_name
+road_shoulder_pix2pix_miou
+--results_dir
+models
+--eval
+--num_test
+10000

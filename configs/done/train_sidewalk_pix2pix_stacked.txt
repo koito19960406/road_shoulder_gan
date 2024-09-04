@@ -1,0 +1,14 @@
+--dataroot
+data\processed\sidewalk\pix2pix_filtered
+--name
+sidewalk_pix2pix_stacked
+--checkpoints_dir
+models
+--model
+pix2pix
+--dataset_mode
+aligned_stacked
+--input_nc
+12
+--wandb_project_name
+sidewalk_pix2pix_stacked

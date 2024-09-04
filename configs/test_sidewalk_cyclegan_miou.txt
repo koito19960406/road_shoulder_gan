@@ -1,0 +1,17 @@
+--dataroot
+data\processed\sidewalk\cyclegan_filtered
+--name
+sidewalk_cyclegan_miou
+--gpu_ids
+0
+--checkpoints_dir
+models
+--model
+cycle_gan
+--wandb_project_name
+sidewalk_cyclegan_miou
+--results_dir
+models
+--eval
+--num_test
+10000

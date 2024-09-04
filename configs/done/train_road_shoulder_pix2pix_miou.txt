@@ -1,0 +1,17 @@
+--dataroot
+data\processed\road_shoulder\pix2pix_filtered
+--name
+road_shoulder_pix2pix_miou
+--checkpoints_dir
+models
+--model
+pix2pix
+--dataset_mode
+aligned
+--wandb_project_name
+road_shoulder_pix2pix_miou
+--use_segmentation
+--n_epochs
+50
+--n_epochs_decay
+50

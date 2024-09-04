@@ -1,0 +1,17 @@
+--dataroot
+data\processed\sidewalk\pix2pix_filtered_perspective
+--name
+sidewalk_pix2pix_perspective
+--gpu_ids
+0
+--checkpoints_dir
+models
+--model
+pix2pix
+--wandb_project_name
+sidewalk_pix2pix_perspective
+--results_dir
+models
+--eval
+--num_test
+10000
