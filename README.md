@@ -5,12 +5,12 @@ This repository is the official implementation of [Translating street view image
 ![Workflow diagram](reports/diagrams/workflow2.006.png)
 ![Generated images](reports/diagrams/workflow.009.png)
 
-
-`archive/` folder where previous code or code not being used is stored
-`road_shoulder_gan/` contains the entire original repo
-`docs/` documentation from cookiecutter
-`src/` is the codebase
-`reports/` output images
+## Structure
+- `archive/` folder where previous code or code not being used is stored
+- `road_shoulder_gan/` contains the entire original repo
+- `docs/` documentation from cookiecutter
+- `src/` is the codebase
+- `reports/` output images
 
 ## Requirements
 
