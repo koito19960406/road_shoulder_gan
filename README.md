@@ -44,8 +44,6 @@ To train the model(s) in the paper, you can run `src/models/train_model.py`
 
 To test the model(s) in the paper, you can run `src/models/test_model.py`
 
->📋  Describe how to evaluate the trained models on benchmarks reported in the paper, give commands that produce the results (section below).
-
 ## Pre-trained Models
 
 You can download pretrained models on [figshare](https://figshare.com/articles/dataset/Data_and_code_for_Translating_street_view_imagery_to_correct_perspectives_to_enhance_bikeability_and_walkability_studies_/25532728/1?file=45432934)
