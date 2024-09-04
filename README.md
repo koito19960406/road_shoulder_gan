@@ -1,8 +1,10 @@
 # Sidewalk the Talk: Translating street view imagery to correct perspectives to enhance bikeability and walkability studies
 
-This repository is the official implementation of [Sidewalk the Talk: Translating street view imagery to correct perspectives to enhance bikeability and walkability studies](https://arxiv.org/abs/2030.12345).
+This repository is the official implementation of [Translating street view imagery to correct perspectives to enhance bikeability and walkability studies](https://doi.org/10.1080/13658816.2024.2391969).
 
->📋  Optional: include a graphic explaining your approach/main result, bibtex entry, link to demos, blog posts and tutorials
+![Workflow diagram](reports/diagrams/workflow2.006.png)
+![Generated images](reports/diagrams/workflow.009.png)
+
 
 `archive/` folder where previous code or code not being used is stored
 `road_shoulder_gan/` contains the entire original repo
@@ -47,6 +49,10 @@ To test the model(s) in the paper, you can run `src/models/test_model.py`
 ## Pre-trained Models
 
 You can download pretrained models on [figshare](https://figshare.com/articles/dataset/Data_and_code_for_Translating_street_view_imagery_to_correct_perspectives_to_enhance_bikeability_and_walkability_studies_/25532728/1?file=45432934)
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Paper and Citation
 
